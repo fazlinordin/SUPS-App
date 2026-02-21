@@ -4,16 +4,17 @@ import requests
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-st.set_page_config(page_title="SUPS by Fazli Ver.1.9", layout="wide")
+st.set_page_config(page_title="SUPS by Fazli Ver.2.0", layout="wide")
 
-# Link Web App yang Fazli berikan
-URL_API = "https://script.google.com/macros/s/AKfycbxAnCNi_nIUnZew_p1S5nzLtcQipqqVg36GvRJtwkw-SZ7H8Vyc9wicdRA-tjU8I9eP2g/exec"
+# URL API Terbaru yang Fazli berikan
+URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 
 # Untuk baca data (Summary)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
+        # Menarik data dari Sheet1
         return conn.read(worksheet="Sheet1", ttl=0)
     except:
         return pd.DataFrame(columns=["Nama", "IC", "TCA_Ubat", "TCA_Clinic", "Ubat_List", "Batch", "Kuantiti"])
@@ -22,11 +23,12 @@ df = load_data()
 
 # --- FUNGSI KIRA JARAK HARI ---
 def kira_jarak_ubat_ke_klinik(t_ubat_str, t_clinic_str):
-    if not t_clinic_str or t_clinic_str == "" or t_clinic_str == "None":
+    if not t_clinic_str or t_clinic_str == "" or t_clinic_str == "None" or t_clinic_str == "nan":
         return ""
     try:
-        t_ubat = datetime.strptime(str(t_ubat_str), '%Y-%m-%d').date()
-        t_clinic = datetime.strptime(str(t_clinic_str), '%Y-%m-%d').date()
+        # Penukaran format tarikh untuk kiraan
+        t_ubat = pd.to_datetime(t_ubat_str).date()
+        t_clinic = pd.to_datetime(t_clinic_str).date()
         beza = (t_clinic - t_ubat).days
         return f"{beza} hari" if beza >= 0 else f"Lepas {abs(beza)} hari"
     except:
@@ -103,7 +105,6 @@ if menu == "📝 Daftar Pesakit Baru":
             list_ubat_str = " | ".join(pilihan_ubat)
             final_ubat = list_ubat_str if not ubat_manual else f"{list_ubat_str} | {ubat_manual.upper()}"
             
-            # Memastikan struktur JSON ditutup dengan betul
             data_json = {
                 "Nama": nama,
                 "IC": ic,
@@ -113,3 +114,45 @@ if menu == "📝 Daftar Pesakit Baru":
                 "Batch": batch_pilihan,
                 "Kuantiti": kuantiti.upper()
             }
+            
+            try:
+                # Menghantar data ke Google Sheets melalui Apps Script
+                r = requests.post(URL_API, json=data_json)
+                if r.status_code == 200:
+                    st.success(f"Rekod {nama} Berjaya Disimpan!")
+                    st.balloons()
+                    # Paksa refresh data selepas simpan
+                    st.cache_data.clear()
+                else:
+                    st.error("Gagal simpan. Sila semak semula Permission Apps Script (Set to ANYONE).")
+            except Exception as e:
+                st.error(f"Error: {e}")
+        else:
+            st.warning("⚠️ Sila isi sekurang-kurangnya Nama dan No IC.")
+
+elif menu == "📊 Summary & Download":
+    st.header("🔍 Semakan Rekod & Jarak Hari")
+    
+    # Butang refresh manual
+    if st.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
+
+    if not df.empty:
+        batch_to_filter = st.selectbox("Pilih Batch untuk Lihat:", SENARAI_BATCH)
+        df_filtered = df[df['Batch'] == batch_to_filter].copy()
+        
+        if not df_filtered.empty:
+            # Mengira kolum Duration to Clinic secara automatik
+            df_filtered['Jarak_Ubat_Ke_Klinik'] = df_filtered.apply(
+                lambda x: kira_jarak_ubat_ke_klinik(x['TCA_Ubat'], x['TCA_Clinic']), axis=1
+            )
+            cols = ["Nama", "IC", "TCA_Ubat", "TCA_Clinic", "Jarak_Ubat_Ke_Klinik", "Ubat_List", "Kuantiti"]
+            st.dataframe(df_filtered[cols], use_container_width=True)
+            
+            csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+            st.download_button(f"📥 Download CSV {batch_to_filter}", csv_data, f"SUPS_{batch_to_filter}.csv", "text/csv")
+        else:
+            st.info("Tiada rekod untuk batch ini.")
+    else:
+        st.info("Data masih kosong atau sedang memuat...")
