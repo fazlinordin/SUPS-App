@@ -4,7 +4,7 @@ import requests
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-st.set_page_config(page_title="SUPS by Fazli Ver.1.8", layout="wide")
+st.set_page_config(page_title="SUPS by Fazli Ver.1.9", layout="wide")
 
 # Link Web App yang Fazli berikan
 URL_API = "https://script.google.com/macros/s/AKfycbxAnCNi_nIUnZew_p1S5nzLtcQipqqVg36GvRJtwkw-SZ7H8Vyc9wicdRA-tjU8I9eP2g/exec"
@@ -29,7 +29,8 @@ def kira_jarak_ubat_ke_klinik(t_ubat_str, t_clinic_str):
         t_clinic = datetime.strptime(str(t_clinic_str), '%Y-%m-%d').date()
         beza = (t_clinic - t_ubat).days
         return f"{beza} hari" if beza >= 0 else f"Lepas {abs(beza)} hari"
-    except: return ""
+    except:
+        return ""
 
 # --- MASTER LIST UBAT (131 JENIS) ---
 MASTER_UBAT = [
@@ -99,13 +100,16 @@ if menu == "📝 Daftar Pesakit Baru":
 
     if submit:
         if nama and ic:
-            # Sediakan Data JSON
-            list_ubat = " | ".join(pilihan_ubat)
-            final_ubat = list_ubat if not ubat_manual else f"{list_ubat} | {ubat_manual.upper()}"
+            list_ubat_str = " | ".join(pilihan_ubat)
+            final_ubat = list_ubat_str if not ubat_manual else f"{list_ubat_str} | {ubat_manual.upper()}"
             
+            # Memastikan struktur JSON ditutup dengan betul
             data_json = {
                 "Nama": nama,
                 "IC": ic,
                 "TCA_Ubat": str(tca_u),
                 "TCA_Clinic": str(tca_c) if ada_clinic else "",
                 "Ubat_List": final_ubat,
+                "Batch": batch_pilihan,
+                "Kuantiti": kuantiti.upper()
+            }
