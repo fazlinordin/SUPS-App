@@ -1,21 +1,26 @@
 import streamlit as st
 import pandas as pd
+import requests
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-st.set_page_config(page_title="SUPS by Fazli Ver.1.7", layout="wide")
+st.set_page_config(page_title="SUPS by Fazli Ver.1.8", layout="wide")
 
+# Link Web App yang Fazli berikan
+URL_API = "https://script.google.com/macros/s/AKfycbxAnCNi_nIUnZew_p1S5nzLtcQipqqVg36GvRJtwkw-SZ7H8Vyc9wicdRA-tjU8I9eP2g/exec"
+
+# Untuk baca data (Summary)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
         return conn.read(worksheet="Sheet1", ttl=0)
     except:
-        # Tambah kolum Kuantiti di sini
         return pd.DataFrame(columns=["Nama", "IC", "TCA_Ubat", "TCA_Clinic", "Ubat_List", "Batch", "Kuantiti"])
 
 df = load_data()
 
+# --- FUNGSI KIRA JARAK HARI ---
 def kira_jarak_ubat_ke_klinik(t_ubat_str, t_clinic_str):
     if not t_clinic_str or t_clinic_str == "" or t_clinic_str == "None":
         return ""
@@ -80,60 +85,27 @@ if menu == "📝 Daftar Pesakit Baru":
             ic = st.text_input("No. IC (Tanpa -):")
             batch_pilihan = st.selectbox("Pilih Batch:", SENARAI_BATCH)
         with col2:
-            tca_u = st.date_input("TCA Ubat (Tarikh Ambil Ubat):")
+            tca_u = st.date_input("TCA Ubat:")
             ada_clinic = st.checkbox("Ada Tarikh TCA Clinic?", value=False)
             tca_c = st.date_input("TCA Clinic:", value=None) if ada_clinic else ""
 
         st.write("---")
         st.subheader("💊 Masukkan Ubat & Kuantiti")
-        
         pilihan_ubat = st.multiselect("1. Pilih Nama Ubat:", MASTER_UBAT)
-        # Tambah input Kuantiti
-        kuantiti = st.text_input("2. Masukkan Kuantiti (Contoh: 30 BIJI / 1 KOTAK / 2 BOTOL):")
+        kuantiti = st.text_input("2. Masukkan Kuantiti (Contoh: 30 BIJI / 1 KOTAK):")
+        ubat_manual = st.text_area("3. Ubat Tiada Dalam List? (Taip di sini):")
         
-        ubat_manual = st.text_area("3. Ubat Tiada Dalam List? (Taip Nama & Kuantiti di sini):")
-        
-        submit = st.form_submit_button("💾 SIMPAN REKOD KE GOOGLE SHEETS", use_container_width=True)
+        submit = st.form_submit_button("💾 SIMPAN REKOD", use_container_width=True)
 
     if submit:
-        if nama and ic and (pilihan_ubat or ubat_manual):
-            # Gabungkan Nama Ubat
-            string_ubat = " | ".join(pilihan_ubat)
+        if nama and ic:
+            # Sediakan Data JSON
+            list_ubat = " | ".join(pilihan_ubat)
+            final_ubat = list_ubat if not ubat_manual else f"{list_ubat} | {ubat_manual.upper()}"
             
-            new_row = pd.DataFrame([{
-                "Nama": nama, 
-                "IC": ic, 
+            data_json = {
+                "Nama": nama,
+                "IC": ic,
                 "TCA_Ubat": str(tca_u),
                 "TCA_Clinic": str(tca_c) if ada_clinic else "",
-                "Ubat_List": string_ubat if not ubat_manual else f"{string_ubat} | {ubat_manual.upper()}", 
-                "Batch": batch_pilihan,
-                "Kuantiti": kuantiti.upper() # Data kuantiti masuk ke kolum baru
-            }])
-            
-            updated_df = pd.concat([df, new_row], ignore_index=True)
-            conn.update(worksheet="Sheet1", data=updated_df)
-            st.success(f"Rekod {nama} berjaya disimpan!")
-            st.balloons()
-            st.rerun()
-        else:
-            st.warning("⚠️ Sila pastikan Nama, IC dan Ubat diisi.")
-
-elif menu == "📊 Summary & Download":
-    st.header("🔍 Semakan Rekod & Jarak Hari")
-    if not df.empty:
-        batch_to_filter = st.selectbox("Pilih Batch untuk Lihat:", SENARAI_BATCH)
-        df_filtered = df[df['Batch'] == batch_to_filter].copy()
-        
-        if not df_filtered.empty:
-            df_filtered['Jarak_Ubat_Ke_Klinik'] = df_filtered.apply(
-                lambda x: kira_jarak_ubat_ke_klinik(x['TCA_Ubat'], x['TCA_Clinic']), axis=1
-            )
-            
-            # Paparkan kolum Kuantiti juga
-            cols = ["Nama", "IC", "TCA_Ubat", "TCA_Clinic", "Jarak_Ubat_Ke_Klinik", "Ubat_List", "Kuantiti"]
-            st.dataframe(df_filtered[cols], use_container_width=True)
-            
-            csv_data = df_filtered.to_csv(index=False).encode('utf-8')
-            st.download_button(f"📥 Download CSV {batch_to_filter}", csv_data, f"SUPS_{batch_to_filter}.csv", "text/csv")
-        else:
-            st.info("Tiada rekod untuk batch ini.")
+                "Ubat_List": final_ubat,
