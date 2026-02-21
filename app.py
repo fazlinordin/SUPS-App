@@ -3,7 +3,7 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime
 
-st.set_page_config(page_title="SUPS by Fazli Ver.1.5", layout="wide")
+st.set_page_config(page_title="SUPS by Fazli Ver.1.6", layout="wide")
 
 # 1. Sambungan Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -74,8 +74,43 @@ menu = st.sidebar.radio("Menu Utama", ["📝 Daftar Pesakit Baru", "📊 Summary
 if menu == "📝 Daftar Pesakit Baru":
     st.header("📋 Daftar Pesakit & Ubat SPUB")
     
+    # PERHATIAN: Semua input mesti berada di bawah blok 'with st.form'
     with st.form("input_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             nama = st.text_input("Nama Penuh:").upper()
-            ic = st
+            ic = st.text_input("No. IC (Tanpa -):")
+            batch_pilihan = st.selectbox("Pilih Batch:", SENARAI_BATCH)
+        with col2:
+            tca_u = st.date_input("TCA Ubat (Tarikh Ambil Ubat):")
+            ada_clinic = st.checkbox("Ada Tarikh TCA Clinic?", value=False)
+            tca_c = st.date_input("TCA Clinic:", value=None) if ada_clinic else ""
+
+        st.write("---")
+        st.subheader("💊 Pilih Ubat")
+        pilihan_ubat = st.multiselect("Pilih dari senarai (boleh pilih banyak):", MASTER_UBAT)
+        ubat_manual = st.text_area("Ubat tambahan / Kuantiti (Contoh: 30 BIJI, 1 BOTOL):")
+        
+        # BUTANG SUBMIT MESTI DI SINI (Dalam form)
+        submit = st.form_submit_button("💾 SIMPAN REKOD KE GOOGLE SHEETS", use_container_width=True)
+
+    # Proses simpan hanya berlaku selepas butang ditekan
+    if submit:
+        if nama and ic:
+            senarai_final = pilihan_ubat.copy()
+            if ubat_manual:
+                senarai_final.append(ubat_manual.upper())
+            
+            string_ubat = " | ".join(senarai_final)
+            
+            new_row = pd.DataFrame([{
+                "Nama": nama, "IC": ic, "TCA_Ubat": str(tca_u),
+                "TCA_Clinic": str(tca_c) if ada_clinic else "",
+                "Ubat_List": string_ubat, "Batch": batch_pilihan
+            }])
+            
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            st.success(f"Rekod {nama} berjaya disimpan!")
+            st.balloons()
+            st.rerun
