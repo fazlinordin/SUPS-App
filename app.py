@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 import requests
+import re
 from datetime import datetime, date
 
-st.set_page_config(page_title="SUPS HJEM V3.1", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V3.2", layout="wide")
 
 # --- KONFIGURASI ---
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- FUNGSI LOAD DATA ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
@@ -18,26 +18,43 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# --- FUNGSI TUKAR KE FORMAT MELINTANG (MATRIX) ---
-def convert_to_matrix(df_filtered):
+# --- FUNGSI EKSTRAK NOMBOR (Untuk Kira Total) ---
+def ekstrak_angka(teks):
+    try:
+        # Cari nombor dalam teks (cth: "30 BIJI" -> 30)
+        angka = re.findall(r'\d+', str(teks))
+        return int(angka[0]) if angka else 0
+    except:
+        return 0
+
+# --- FUNGSI TUKAR KE FORMAT MELINTANG DENGAN TOTAL ---
+def convert_to_matrix_with_total(df_filtered):
     rows = []
     for _, row in df_filtered.iterrows():
-        # Pecahkan ubat dan kuantiti yang disimpan dalam format "Ubat A | Ubat B"
         ubats = str(row['UBAT_LIST']).split(' | ')
         qtys = str(row['KUANTITI']).split(' | ')
         for u, q in zip(ubats, qtys):
             rows.append({
                 'NAMA PESAKIT': row['NAMA'],
                 'UBAT': u.strip(),
-                'KUANTITI': q.strip()
+                'KUANTITI': q.strip(),
+                'NILAI': ekstrak_angka(q)
             })
     
     if not rows:
         return pd.DataFrame()
         
     new_df = pd.DataFrame(rows)
-    # Jadikan Ubat sebagai Baris (Index) dan Nama sebagai Kolum
+    
+    # 1. Buat Matrix Utama (Ubat vs Pesakit)
     matrix = new_df.pivot_table(index='UBAT', columns='NAMA PESAKIT', values='KUANTITI', aggfunc='first').fillna('')
+    
+    # 2. Kira Jumlah Besar (Total) setiap ubat
+    total_series = new_df.groupby('UBAT')['NILAI'].sum()
+    
+    # 3. Masukkan Kolum TOTAL di posisi pertama (sebelah nama ubat)
+    matrix.insert(0, 'TOTAL (BIJI/UNIT)', total_series)
+    
     return matrix
 
 # --- INITIALIZE BAKUL UBAT ---
@@ -45,17 +62,15 @@ if 'bakul_ubat' not in st.session_state:
     st.session_state.bakul_ubat = []
 
 # --- MASTER LIST UBAT ---
-# (Pastikan anda masukkan list 131 ubat di sini)
+# Sila masukkan senarai 131 ubat anda di sini
 MASTER_UBAT = sorted(["Amlodipine 10mg", "Atorvastatin 20mg", "Metformin 500mg", "Simvastatin 40mg", "Warfarin 2mg"]) 
 
-# --- UI SIDEBAR ---
 st.sidebar.title("🏥 SUPS HJEM")
 menu = st.sidebar.radio("NAVIGASI", ["📝 DAFTAR & TAMBAH UBAT", "📊 SUMMARY BATCH"])
 
 if menu == "📝 DAFTAR & TAMBAH UBAT":
-    st.header("Pendaftaran Pesakit & Penyediaan Ubat")
+    st.header("Pendaftaran & Penyediaan Ubat")
     
-    # 1. Maklumat Pesakit
     with st.container(border=True):
         st.subheader("👤 Maklumat Pesakit")
         c1, c2, c3 = st.columns(3)
@@ -67,19 +82,17 @@ if menu == "📝 DAFTAR & TAMBAH UBAT":
         t_ubat = c4.date_input("Tarikh Ambil Ubat:", value=date.today())
         t_clinic = c5.date_input("Tarikh TCA Klinik:", value=None)
 
-    # 2. Input Ubat Satu-Persatu
     with st.container(border=True):
         st.subheader("💊 Tambah Ubat")
         u1, u2, u3 = st.columns([2, 1, 1])
         pilih_u = u1.selectbox("Pilih Nama Ubat:", ["-- Pilih --"] + MASTER_UBAT)
-        isi_q = u2.text_input("Kuantiti (cth: 30 biji):")
+        isi_q = u2.text_input("Kuantiti (cth: 30 BIJI):")
         
         if u3.button("➕ Tambah", use_container_width=True):
             if pilih_u != "-- Pilih --" and isi_q:
                 st.session_state.bakul_ubat.append({"ubat": pilih_u, "qty": isi_q})
                 st.rerun()
 
-    # 3. Paparan Bakul & Simpan
     if st.session_state.bakul_ubat:
         st.write("### 🛒 Senarai Sementara")
         st.table(pd.DataFrame(st.session_state.bakul_ubat))
@@ -106,15 +119,11 @@ if menu == "📝 DAFTAR & TAMBAH UBAT":
                         st.success(f"Berjaya Simpan Rekod {nama}!")
                         st.session_state.bakul_ubat = []
                         st.balloons()
-                    else:
-                        st.error("Ralat API!")
                 except Exception as e:
                     st.error(f"Error: {e}")
-            else:
-                st.warning("Isi Nama & IC dulu!")
 
 elif menu == "📊 SUMMARY BATCH":
-    st.header("📋 Ringkasan Checklist Melintang")
+    st.header("📋 Ringkasan & Total Penggunaan Ubat")
     
     if st.button("🔄 Refresh Data"):
         st.cache_data.clear()
@@ -126,18 +135,20 @@ elif menu == "📊 SUMMARY BATCH":
         df_batch = df[df['BATCH'] == batch_sel].copy()
         
         if not df_batch.empty:
-            st.subheader(f"Pratonton Format Melintang ({batch_sel})")
-            # Tukar ke format matrix/excel melintang
-            df_matrix = convert_to_matrix(df_batch)
+            st.subheader(f"Jadual Penggunaan Ubat - {batch_sel}")
             
+            # Panggil fungsi matrix yang ada TOTAL
+            df_matrix = convert_to_matrix_with_total(df_batch)
+            
+            # Paparkan jadual
             st.dataframe(df_matrix, use_container_width=True)
             
             # Button Download
             csv_data = df_matrix.to_csv().encode('utf-8')
             st.download_button(
-                label="📥 Download Checklist Excel (Melintang)",
+                label="📥 Download Checklist & Total (Excel Style)",
                 data=csv_data,
-                file_name=f"Checklist_SPUB_{batch_sel}.csv",
+                file_name=f"Checklist_Total_{batch_sel}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
