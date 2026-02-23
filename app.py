@@ -4,14 +4,12 @@ import requests
 import re
 from datetime import datetime, date
 
-# Mesti baris pertama selepas import
-st.set_page_config(page_title="SUPS HJEM V3.4", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V3.5", layout="wide")
 
-# --- KONFIGURASI ---
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 1. SENARAI 131 UBAT (Dah siap susun A-Z) ---
+# --- MASTER LIST (131 UBAT) ---
 MASTER_UBAT = sorted([
     "acetazolamide 250mg tab", "acetylsalicyclic acid 150 mg dispersible tab", "Acitretin 25mg capsule", "ACTRAPID",
     "acyclovir 800mg tab", "adapalene 0.1% gel", "allopurinol 100mg tablet", "amlodipine 10mg + valsartan 160",
@@ -51,117 +49,85 @@ MASTER_UBAT = sorted([
     "Warfarin 5mg", "white petroleum anhydrous liq linolin, mineral oil eye oint", "White Soft Paraffin BP (White Petroleum Jelly BP)"
 ])
 
-# --- 2. FUNGSI PEMBANTU ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
         df.columns = df.columns.str.strip().str.upper()
         return df
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 def ekstrak_angka(teks):
+    # Mengambil hanya nombor bulat dari teks kuantiti
     angka = re.findall(r'\d+', str(teks))
-    return int(angka[0]) if angka else 0
+    return sum(int(a) for a in angka) if angka else 0
 
 def convert_to_matrix_with_total(df_filtered):
-    rows = []
+    data_list = []
     for _, row in df_filtered.iterrows():
         ubats = str(row['UBAT_LIST']).split(' | ')
         qtys = str(row['KUANTITI']).split(' | ')
         for u, q in zip(ubats, qtys):
-            rows.append({
-                'NAMA PESAKIT': row['NAMA'],
-                'UBAT': u.strip(),
-                'KUANTITI': q.strip(),
-                'NILAI': ekstrak_angka(q)
+            data_list.append({
+                'NAMA PESAKIT': str(row['NAMA']).strip().upper(),
+                'UBAT': str(u).strip().upper(), # Tukar ke UPPER untuk sorting yang betul
+                'KUANTITI_TEXT': str(q).strip(),
+                'KUANTITI_VAL': ekstrak_angka(q)
             })
     
-    if not rows: return pd.DataFrame()
+    if not data_list: return pd.DataFrame()
     
-    new_df = pd.DataFrame(rows)
-    # Pivot & Sort A-Z secara automatik
-    matrix = new_df.pivot_table(index='UBAT', columns='NAMA PESAKIT', values='KUANTITI', aggfunc='first').fillna('')
-    matrix = matrix.sort_index() 
+    temp_df = pd.DataFrame(data_list)
     
-    # Kira Total
-    total_series = new_df.groupby('UBAT')['NILAI'].sum()
-    matrix.insert(0, 'TOTAL (BIJI)', total_series)
+    # 1. Pivot Table untuk paparan melintang
+    matrix = temp_df.pivot_table(index='UBAT', columns='NAMA PESAKIT', values='KUANTITI_TEXT', aggfunc='first').fillna('')
+    
+    # 2. Susun Index A-Z (Upper case menjamin susunan yang betul)
+    matrix = matrix.sort_index()
+    
+    # 3. Kira TOTAL
+    total_val = temp_df.groupby('UBAT')['KUANTITI_VAL'].sum()
+    matrix.insert(0, 'TOTAL (BIJI/UNIT)', total_val)
+    
     return matrix
 
-# --- 3. SESSION STATE ---
-if 'bakul_ubat' not in st.session_state:
-    st.session_state.bakul_ubat = []
+if 'bakul' not in st.session_state: st.session_state.bakul = []
 
-# --- 4. UI UTAMA ---
-st.sidebar.title("🏥 SUPS HJEM")
-menu = st.sidebar.radio("NAVIGASI", ["📝 DAFTAR & TAMBAH UBAT", "📊 SUMMARY BATCH"])
+# --- UI ---
+menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
-if menu == "📝 DAFTAR & TAMBAH UBAT":
-    st.header("Pendaftaran Pesakit")
-    
-    with st.container(border=True):
-        st.subheader("👤 Maklumat Pesakit")
+if menu == "📝 INPUT":
+    st.header("Input Pesakit & Ubat")
+    with st.form("main_form"):
         c1, c2, c3 = st.columns(3)
-        nama_in = c1.text_input("Nama Penuh:").upper()
-        ic_in = c2.text_input("No. IC:")
-        batch_in = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
+        nama = c1.text_input("Nama:").upper()
+        ic = c2.text_input("IC:")
+        batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
-        c4, c5 = st.columns(2)
-        t_ubat_in = c4.date_input("Tarikh Ambil Ubat:", value=date.today())
-        t_clinic_in = c5.date_input("Tarikh TCA Klinik:", value=None)
-
-    with st.container(border=True):
-        st.subheader("💊 Tambah Ubat")
-        u1, u2, u3 = st.columns([2, 1, 1])
-        pilih_u = u1.selectbox("Pilih Nama Ubat:", ["-- Pilih --"] + MASTER_UBAT)
-        isi_q = u2.text_input("Kuantiti (cth: 30 BIJI):")
+        st.write("---")
+        u1, u2 = st.columns([3, 1])
+        pilih_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        qty_u = u2.text_input("Qty (Contoh: 30):")
         
-        if u3.button("➕ Tambah"):
-            if pilih_u != "-- Pilih --" and isi_q:
-                st.session_state.bakul_ubat.append({"ubat": pilih_u, "qty": isi_q})
-                st.rerun()
+        if st.form_submit_button("➕ Tambah ke Bakul"):
+            if pilih_u != "-- PILIH --" and qty_u:
+                st.session_state.bakul.append({"u": pilih_u, "q": qty_u})
 
-    if st.session_state.bakul_ubat:
-        st.write("### 🛒 Senarai Sementara")
-        st.table(pd.DataFrame(st.session_state.bakul_ubat))
-        
-        cs1, cs2 = st.columns([1, 4])
-        if cs1.button("🗑️ Kosongkan"):
-            st.session_state.bakul_ubat = []
-            st.rerun()
-            
-        if cs2.button("💾 SIMPAN SEMUA DATA", type="primary", use_container_width=True):
-            if nama_in and ic_in:
-                data_json = {
-                    "Nama": nama_in, "IC": ic_in, "TCA_Ubat": str(t_ubat_in),
-                    "TCA_Clinic": str(t_clinic_in) if t_clinic_in else "",
-                    "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul_ubat]),
-                    "Batch": batch_in,
-                    "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul_ubat])
-                }
-                try:
-                    r = requests.post(URL_API, json=data_json)
-                    if r.status_code == 200:
-                        st.success("Berjaya Simpan!")
-                        st.session_state.bakul_ubat = []
-                        st.balloons()
-                except: st.error("Ralat Sambungan API")
-            else: st.warning("Isi Nama & IC!")
+    if st.session_state.bakul:
+        st.table(pd.DataFrame(st.session_state.bakul))
+        if st.button("💾 SIMPAN SEMUA"):
+            u_list = " | ".join([x['u'] for x in st.session_state.bakul])
+            q_list = " | ".join([x['q'] for x in st.session_state.bakul])
+            payload = {"Nama": nama, "IC": ic, "Ubat_List": u_list, "Kuantiti": q_list, "Batch": batch}
+            r = requests.post(URL_API, json=payload)
+            if r.status_code == 200:
+                st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
 
-elif menu == "📊 SUMMARY BATCH":
-    st.header("📋 Ringkasan Checklist A-Z")
-    if st.button("🔄 Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
-
+elif menu == "📊 SUMMARY":
+    st.header("Checklist & Total")
     df = load_data()
     if not df.empty:
-        batch_sel = st.selectbox("Pilih Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
-        df_batch = df[df['BATCH'] == batch_sel].copy()
-        
-        if not df_batch.empty:
-            df_matrix = convert_to_matrix_with_total(df_batch)
-            st.dataframe(df_matrix, use_container_width=True)
-            st.download_button("📥 Download Excel Style", df_matrix.to_csv().encode('utf-8'), f"{batch_sel}.csv", "text/csv", use_container_width=True)
-        else: st.info("Tiada data untuk batch ini.")
+        batch_sel = st.selectbox("Tapis Batch:", sorted(df['BATCH'].unique()))
+        df_f = df[df['BATCH'] == batch_sel]
+        res = convert_to_matrix_with_total(df_f)
+        st.dataframe(res, use_container_width=True)
+        st.download_button("📥 Download CSV", res.to_csv().encode('utf-8'), "Checklist.csv")
