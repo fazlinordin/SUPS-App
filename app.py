@@ -3,12 +3,12 @@ import pandas as pd
 import requests
 from datetime import datetime, date
 
-st.set_page_config(page_title="SUPS HJEM V3.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V3.9", layout="wide")
 
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- SENARAI 131 UBAT (A-Z) ---
+# --- SENARAI 131 UBAT (Sama seperti sebelum ini) ---
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -47,7 +47,6 @@ MASTER_UBAT = sorted([
     "WARFARIN 5MG", "WHITE PETROLEUM EYE OINT", "WHITE PETROLEUM JELLY"
 ])
 
-# --- FUNGSI DATA ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
@@ -56,59 +55,64 @@ def load_data():
     except: return pd.DataFrame()
 
 def convert_to_matrix_with_tca(df_filtered):
-    # 1. Kerangka A-Z
-    matrix = pd.DataFrame(index=MASTER_UBAT)
-    
-    if df_filtered.empty: return matrix
+    if df_filtered.empty: return pd.DataFrame()
 
-    tca_ubat_row = {}
-    tca_dr_row = {}
+    matrix_data = []
+    info_tca_ubat = {}
+    info_tca_dr = {}
     calc_data = []
 
-    # 2. Map data pesakit
     for _, row in df_filtered.iterrows():
         p_name = str(row['NAMA']).strip().upper()
-        tca_ubat_row[p_name] = str(row.get('TCA_UBAT', '-'))
-        tca_dr_row[p_name] = str(row.get('TCA_CLINIC', '-'))
+        info_tca_ubat[p_name] = str(row.get('TCA_UBAT', '-'))
+        info_tca_dr[p_name] = str(row.get('TCA_CLINIC', '-'))
         
         u_list = str(row['UBAT_LIST']).split(' | ')
         q_list = str(row['KUANTITI']).split(' | ')
         
         for u, q in zip(u_list, q_list):
             u_up = u.strip().upper()
-            if u_up in MASTER_UBAT:
-                matrix.at[u_up, p_name] = q.strip()
-                # Ekstrak angka sahaja untuk total
-                try:
-                    val = int(''.join(filter(str.isdigit, q)))
-                    calc_data.append({'U': u_up, 'V': val})
-                except: pass
+            q_str = q.strip()
+            # Ekstrak angka untuk TOTAL
+            try:
+                num = int(''.join(filter(str.isdigit, q_str)))
+            except: num = 0
+            
+            matrix_data.append({'UBAT': u_up, 'PESAKIT': p_name, 'QTY': q_str})
+            calc_data.append({'UBAT': u_up, 'VAL': num})
 
-    # 3. Bina Header TCA
-    header_tca = pd.DataFrame([tca_ubat_row, tca_dr_row], index=["📅 TCA UBAT", "👨‍⚕️ TCA CLINIC"])
-    final_df = pd.concat([header_tca, matrix])
+    if not matrix_data: return pd.DataFrame()
 
-    # 4. Tambah Kolum Total
-    if calc_data:
-        totals = pd.DataFrame(calc_data).groupby('U')['V'].sum()
-        final_df.insert(0, "📊 TOTAL", totals)
-    else:
-        final_table.insert(0, "📊 TOTAL", 0)
+    # 1. Bina Pivot Table (Hanya ubat yang ada dalam data sahaja)
+    df_matrix = pd.DataFrame(matrix_data)
+    matrix = df_matrix.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
 
-    return final_df.fillna("")
+    # 2. Kira TOTAL (Tukar ke Integer untuk buang titik perpuluhan)
+    df_calc = pd.DataFrame(calc_data)
+    totals = df_calc.groupby('UBAT')['VAL'].sum().astype(int)
+    
+    # 3. Gabungkan Total ke dalam Matrix
+    matrix.insert(0, "📊 TOTAL", totals)
+
+    # 4. Bina baris TCA
+    header_tca = pd.DataFrame([info_tca_ubat, info_tca_dr], index=["📅 TCA UBAT", "👨‍⚕️ TCA CLINIC"])
+    
+    # 5. Gabung Header dan Matrix
+    final_df = pd.concat([header_tca, matrix], sort=False).fillna("")
+
+    return final_df
 
 if 'bakul' not in st.session_state: st.session_state.bakul = []
 
 # --- UI ---
-st.sidebar.title("🏥 SUPS HJEM")
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
 if menu == "📝 INPUT":
-    st.header("Input Rekod")
+    st.header("Input Data Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        nama = c1.text_input("Nama:").upper()
-        ic = c2.text_input("IC:")
+        nama = c1.text_input("Nama Pesakit:").upper()
+        ic = c2.text_input("IC:").upper()
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
         c4, c5 = st.columns(2)
@@ -118,7 +122,7 @@ if menu == "📝 INPUT":
         st.divider()
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        p_q = u2.text_input("Kuantiti:")
+        p_q = u2.text_input("Kuantiti (Nombor sahaja):")
         
         if st.button("➕ Tambah"):
             if p_u != "-- PILIH --" and p_q:
@@ -127,27 +131,24 @@ if menu == "📝 INPUT":
 
     if st.session_state.bakul:
         st.table(pd.DataFrame(st.session_state.bakul))
-        if st.button("💾 SIMPAN DATA", type="primary"):
-            payload = {
-                "Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), 
-                "TCA_Clinic": str(t_d) if t_d else "-",
-                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
-                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]),
-                "Batch": batch
-            }
+        if st.button("💾 SIMPAN SEKARANG", type="primary"):
+            u_str = " | ".join([x['u'] for x in st.session_state.bakul])
+            q_str = " | ".join([x['q'] for x in st.session_state.bakul])
+            payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": u_str, "Kuantiti": q_str, "Batch": batch}
             requests.post(URL_API, json=payload)
-            st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
+            st.success("Berjaya Disimpan!"); st.session_state.bakul = []; st.balloons()
 
 elif menu == "📊 SUMMARY":
-    st.header("Checklist Melintang (Lengkap)")
+    st.header("Checklist Ubat Yang Dibekalkan")
     df = load_data()
     if not df.empty:
-        b_list = sorted(df['BATCH'].unique())
-        b_sel = st.selectbox("Pilih Batch:", b_list)
+        b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
         df_f = df[df['BATCH'] == b_sel]
         
-        # PANGGIL FUNGSI YANG BETUL
         res = convert_to_matrix_with_tca(df_f)
         
-        st.dataframe(res, use_container_width=True, height=600)
-        st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"Checklist_{b_sel}.csv")
+        if not res.empty:
+            st.dataframe(res, use_container_width=True, height=500)
+            st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"Checklist_{b_sel}.csv")
+        else:
+            st.info("Tiada data ubat untuk batch ini.")
