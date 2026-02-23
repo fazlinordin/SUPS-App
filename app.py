@@ -3,12 +3,12 @@ import pandas as pd
 import requests
 from datetime import datetime, date
 
-st.set_page_config(page_title="SUPS HJEM V3.9", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V4.0", layout="wide")
 
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- SENARAI 131 UBAT (Sama seperti sebelum ini) ---
+# --- MASTER LIST 131 UBAT ---
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -54,18 +54,35 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-def convert_to_matrix_with_tca(df_filtered):
+def kira_hari(tarikh_str):
+    if not tarikh_str or tarikh_str == "-" or tarikh_str == "None":
+        return "-"
+    try:
+        hari_ini = date.today()
+        sasaran = datetime.strptime(tarikh_str, "%Y-%m-%d").date()
+        baki = (sasaran - hari_ini).days
+        if baki > 0: return f"{baki} HARI LAGI"
+        elif baki == 0: return "HARI INI"
+        else: return "TELAH LEPAS"
+    except: return "-"
+
+def convert_to_matrix_final(df_filtered):
     if df_filtered.empty: return pd.DataFrame()
 
     matrix_data = []
     info_tca_ubat = {}
     info_tca_dr = {}
+    info_countdown = {}
     calc_data = []
 
     for _, row in df_filtered.iterrows():
         p_name = str(row['NAMA']).strip().upper()
-        info_tca_ubat[p_name] = str(row.get('TCA_UBAT', '-'))
-        info_tca_dr[p_name] = str(row.get('TCA_CLINIC', '-'))
+        tca_u = str(row.get('TCA_UBAT', '-'))
+        tca_d = str(row.get('TCA_CLINIC', '-'))
+        
+        info_tca_ubat[p_name] = tca_u
+        info_tca_dr[p_name] = tca_d
+        info_countdown[p_name] = kira_hari(tca_d)
         
         u_list = str(row['UBAT_LIST']).split(' | ')
         q_list = str(row['KUANTITI']).split(' | ')
@@ -73,7 +90,6 @@ def convert_to_matrix_with_tca(df_filtered):
         for u, q in zip(u_list, q_list):
             u_up = u.strip().upper()
             q_str = q.strip()
-            # Ekstrak angka untuk TOTAL
             try:
                 num = int(''.join(filter(str.isdigit, q_str)))
             except: num = 0
@@ -83,24 +99,19 @@ def convert_to_matrix_with_tca(df_filtered):
 
     if not matrix_data: return pd.DataFrame()
 
-    # 1. Bina Pivot Table (Hanya ubat yang ada dalam data sahaja)
     df_matrix = pd.DataFrame(matrix_data)
     matrix = df_matrix.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
 
-    # 2. Kira TOTAL (Tukar ke Integer untuk buang titik perpuluhan)
+    # Kira Total (Integer)
     df_calc = pd.DataFrame(calc_data)
     totals = df_calc.groupby('UBAT')['VAL'].sum().astype(int)
-    
-    # 3. Gabungkan Total ke dalam Matrix
     matrix.insert(0, "📊 TOTAL", totals)
 
-    # 4. Bina baris TCA
-    header_tca = pd.DataFrame([info_tca_ubat, info_tca_dr], index=["📅 TCA UBAT", "👨‍⚕️ TCA CLINIC"])
+    # Bina Header Info
+    header_info = pd.DataFrame([info_tca_ubat, info_tca_dr, info_countdown], 
+                               index=["📅 TCA UBAT", "👨‍⚕️ TCA CLINIC", "⏳ BAKI HARI (TCA DR)"])
     
-    # 5. Gabung Header dan Matrix
-    final_df = pd.concat([header_tca, matrix], sort=False).fillna("")
-
-    return final_df
+    return pd.concat([header_info, matrix], sort=False).fillna("")
 
 if 'bakul' not in st.session_state: st.session_state.bakul = []
 
@@ -109,46 +120,40 @@ menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
 if menu == "📝 INPUT":
     st.header("Input Data Pesakit")
-    with st.container(border=True):
+    with st.form("input_form"):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama Pesakit:").upper()
         ic = c2.text_input("IC:").upper()
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
         c4, c5 = st.columns(2)
-        t_u = c4.date_input("TCA Ubat:", value=date.today())
-        t_d = c5.date_input("TCA Klinik:", value=None)
-
+        t_u = c4.date_input("Tarikh TCA Ubat:", value=date.today())
+        t_d = c5.date_input("Tarikh TCA Klinik (Dr):", value=None)
+        
         st.divider()
         u1, u2 = st.columns([3, 1])
-        p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        p_q = u2.text_input("Kuantiti (Nombor sahaja):")
+        p_u = u1.selectbox("Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        p_q = u2.text_input("Kuantiti (Nombor):")
         
-        if st.button("➕ Tambah"):
-            if p_u != "-- PILIH --" and p_q:
-                st.session_state.bakul.append({"u": p_u, "q": p_q})
-                st.rerun()
+        submit = st.form_submit_button("➕ Tambah Ke Bakul")
+        if submit and p_u != "-- PILIH --" and p_q:
+            st.session_state.bakul.append({"u": p_u, "q": p_q})
 
     if st.session_state.bakul:
         st.table(pd.DataFrame(st.session_state.bakul))
-        if st.button("💾 SIMPAN SEKARANG", type="primary"):
+        if st.button("💾 SIMPAN SEMUA", type="primary"):
             u_str = " | ".join([x['u'] for x in st.session_state.bakul])
             q_str = " | ".join([x['q'] for x in st.session_state.bakul])
             payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": u_str, "Kuantiti": q_str, "Batch": batch}
             requests.post(URL_API, json=payload)
-            st.success("Berjaya Disimpan!"); st.session_state.bakul = []; st.balloons()
+            st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
 
 elif menu == "📊 SUMMARY":
-    st.header("Checklist Ubat Yang Dibekalkan")
+    st.header("Checklist & Countdown")
     df = load_data()
     if not df.empty:
-        b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
+        b_sel = st.selectbox("Batch:", sorted(df['BATCH'].unique()))
         df_f = df[df['BATCH'] == b_sel]
-        
-        res = convert_to_matrix_with_tca(df_f)
-        
-        if not res.empty:
-            st.dataframe(res, use_container_width=True, height=500)
-            st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"Checklist_{b_sel}.csv")
-        else:
-            st.info("Tiada data ubat untuk batch ini.")
+        res = convert_to_matrix_final(df_f)
+        st.dataframe(res, use_container_width=True, height=600)
+        st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"{b_sel}.csv")
