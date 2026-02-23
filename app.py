@@ -3,12 +3,12 @@ import pandas as pd
 import requests
 from datetime import datetime, date
 
-st.set_page_config(page_title="SUPS HJEM V3.7", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V3.8", layout="wide")
 
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- SENARAI 131 UBAT ---
+# --- SENARAI 131 UBAT (A-Z) ---
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -19,7 +19,7 @@ MASTER_UBAT = sorted([
     "BETAMETASONE 17 VALERATE 1 IN 2 CREAM (0.05%)", "BETAMETASONE VALEARATE 1:2 OINMENT", "BETAMETHASONE 17 VALERATE 0.1% OINTMENT",
     "BETAMETHASONE 17-VALERATE 0.1% CREAM", "BRIMONIDINE TARTRATE 0.15% OPTH SOL.", 
     "BUDESONIDE 160MCG AND FORMETEROL 4.5MCG TURBUHALER 120 DOSES", "CALCIPOTRIO 50 MCG/G BETAMETASONE 0.5MG/G OINT",
-    "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LACTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
+    "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LAKTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
     "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
     "CLOBETASONE BUTYRATE 0.05% OINMT", "CLOPIDOGREL 75MG TAB", "COAL TAR (LPC) 3% OINTMENT", "COAL TAR (LPC) 6% OINMENT",
     "COAL TAR 1 % SALICYCLIC ACID 2 % SHAMPOO", "COAL TAR 12% SALICYLIC ACID 2% SULPHUR 4% OINT.", "DABIGATRAN ETEXILATE 150MG CAP",
@@ -47,6 +47,7 @@ MASTER_UBAT = sorted([
     "WARFARIN 5MG", "WHITE PETROLEUM EYE OINT", "WHITE PETROLEUM JELLY"
 ])
 
+# --- FUNGSI DATA ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
@@ -55,102 +56,98 @@ def load_data():
     except: return pd.DataFrame()
 
 def convert_to_matrix_with_tca(df_filtered):
-    # 1. Bina kerangka ubat (A-Z)
+    # 1. Kerangka A-Z
     matrix = pd.DataFrame(index=MASTER_UBAT)
-    matrix.index.name = "💊 NAMA UBAT"
     
     if df_filtered.empty: return matrix
 
-    # 2. Extract Info Pesakit & TCA
-    info_tca_ubat = {}
-    info_tca_dr = {}
-    pesakit_counts = []
+    tca_ubat_row = {}
+    tca_dr_row = {}
+    calc_data = []
 
+    # 2. Map data pesakit
     for _, row in df_filtered.iterrows():
-        p_nama = str(row['NAMA']).strip().upper()
-        # Simpan info TCA untuk Header
-        info_tca_ubat[p_nama] = str(row.get('TCA_UBAT', '-'))
-        info_tca_dr[p_nama] = str(row.get('TCA_CLINIC', '-'))
+        p_name = str(row['NAMA']).strip().upper()
+        tca_ubat_row[p_name] = str(row.get('TCA_UBAT', '-'))
+        tca_dr_row[p_name] = str(row.get('TCA_CLINIC', '-'))
         
-        # Pecahkan ubat & qty
         u_list = str(row['UBAT_LIST']).split(' | ')
         q_list = str(row['KUANTITI']).split(' | ')
         
         for u, q in zip(u_list, q_list):
-            u_clean = u.strip().upper()
-            if u_clean in MASTER_UBAT:
-                matrix.at[u_clean, p_nama] = q.strip()
-                # Untuk kira TOTAL
+            u_up = u.strip().upper()
+            if u_up in MASTER_UBAT:
+                matrix.at[u_up, p_name] = q.strip()
+                # Ekstrak angka sahaja untuk total
                 try:
-                    num = int(''.join(filter(str.isdigit, q)))
-                except: num = 0
-                pesakit_counts.append({'U': u_clean, 'V': num})
+                    val = int(''.join(filter(str.isdigit, q)))
+                    calc_data.append({'U': u_up, 'V': val})
+                except: pass
 
-    # 3. Masukkan Baris Info TCA (Header)
-    # Kita tukar index jadi string untuk masukkan baris info
-    matrix.columns = matrix.columns.astype(str)
-    
-    # Masukkan baris TCA di "atas" ubat (sebenarnya kita tambah sebagai row baru)
-    row_tca_ubat = pd.Series(info_tca_ubat, name="📅 TCA UBAT")
-    row_tca_dr = pd.Series(info_tca_dr, name="👨‍⚕️ TCA CLINIC")
-    
-    # Gabungkan baris info dengan jadual ubat
-    # Kita letak info di atas sekali
-    final_table = pd.concat([pd.DataFrame([row_tca_ubat, row_tca_dr]), matrix])
+    # 3. Bina Header TCA
+    header_tca = pd.DataFrame([tca_ubat_row, tca_dr_row], index=["📅 TCA UBAT", "👨‍⚕️ TCA CLINIC"])
+    final_df = pd.concat([header_tca, matrix])
 
-    # 4. Kira TOTAL (Hanya untuk baris ubat)
-    if pesakit_counts:
-        df_c = pd.DataFrame(pesakit_counts)
-        totals = df_c.groupby('U')['V'].sum()
-        final_table.insert(0, "📊 TOTAL", totals)
+    # 4. Tambah Kolum Total
+    if calc_data:
+        totals = pd.DataFrame(calc_data).groupby('U')['V'].sum()
+        final_df.insert(0, "📊 TOTAL", totals)
     else:
-        final_table.insert(0, "📊 TOTAL", "")
+        final_table.insert(0, "📊 TOTAL", 0)
 
-    return final_table.fillna("")
+    return final_df.fillna("")
 
 if 'bakul' not in st.session_state: st.session_state.bakul = []
 
 # --- UI ---
-menu = st.sidebar.radio("MENU", ["📝 INPUT DATA", "📊 SUMMARY CHECKLIST"])
+st.sidebar.title("🏥 SUPS HJEM")
+menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
-if menu == "📝 INPUT DATA":
-    st.header("Pendaftaran & Tambah Ubat")
+if menu == "📝 INPUT":
+    st.header("Input Rekod")
     with st.container(border=True):
-        c1, c2 = st.columns(2)
-        nama = c1.text_input("Nama Pesakit:").upper()
-        ic = c2.text_input("No. IC:")
-        batch = st.selectbox("Pilih Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
+        c1, c2, c3 = st.columns(3)
+        nama = c1.text_input("Nama:").upper()
+        ic = c2.text_input("IC:")
+        batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
-        c3, c4 = st.columns(2)
-        t_ubat = c3.date_input("TCA Ubat:", value=date.today())
-        t_dr = c4.date_input("TCA Klinik (Dr):", value=None)
-        
-        st.write("---")
+        c4, c5 = st.columns(2)
+        t_u = c4.date_input("TCA Ubat:", value=date.today())
+        t_d = c5.date_input("TCA Klinik:", value=None)
+
+        st.divider()
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        p_q = u2.text_input("Kuantiti (cth: 30):")
+        p_q = u2.text_input("Kuantiti:")
         
-        if st.button("➕ Masuk Bakul"):
+        if st.button("➕ Tambah"):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
 
     if st.session_state.bakul:
-        st.write("### 🛒 Senarai Sementara")
         st.table(pd.DataFrame(st.session_state.bakul))
-        if st.button("💾 SIMPAN KE GOOGLE SHEET", type="primary"):
-            u_str = " | ".join([x['u'] for x in st.session_state.bakul])
-            q_str = " | ".join([x['q'] for x in st.session_state.bakul])
-            data = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_ubat), "TCA_Clinic": str(t_dr) if t_dr else "-", "Ubat_List": u_str, "Kuantiti": q_str, "Batch": batch}
-            requests.post(URL_API, json=data)
-            st.success("Data Berjaya Disimpan!"); st.session_state.bakul = []; st.balloons()
+        if st.button("💾 SIMPAN DATA", type="primary"):
+            payload = {
+                "Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), 
+                "TCA_Clinic": str(t_d) if t_d else "-",
+                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
+                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]),
+                "Batch": batch
+            }
+            requests.post(URL_API, json=payload)
+            st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
 
-elif menu == "📊 SUMMARY CHECKLIST":
-    st.header("Checklist Master (TCA + Ubat A-Z)")
+elif menu == "📊 SUMMARY":
+    st.header("Checklist Melintang (Lengkap)")
     df = load_data()
     if not df.empty:
-        b_sel = st.selectbox("Tapis mengikut Batch:", sorted(df['BATCH'].unique()))
+        b_list = sorted(df['BATCH'].unique())
+        b_sel = st.selectbox("Pilih Batch:", b_list)
         df_f = df[df['BATCH'] == b_sel]
         
-        # Papar matrix dengan info TCA
-        res = convert
+        # PANGGIL FUNGSI YANG BETUL
+        res = convert_to_matrix_with_tca(df_f)
+        
+        st.dataframe(res, use_container_width=True, height=600)
+        st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"Checklist_{b_sel}.csv")
