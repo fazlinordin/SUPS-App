@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, date
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V4.7", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V4.8", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -51,7 +51,7 @@ MASTER_UBAT = sorted([
     "WARFARIN 5MG", "WHITE PETROLEUM EYE OINT", "WHITE PETROLEUM JELLY"
 ])
 
-# --- 3. FUNGSI LOGIK ---
+# --- 3. FUNGSI ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
@@ -69,9 +69,8 @@ def hitung_durasi(tca_u, tca_d):
 
 def convert_to_matrix_final(df_f):
     if df_f.empty: return pd.DataFrame()
-    matrix_data, info_u, info_d, info_dur, calc_dict = [], {}, {}, {}, {}
+    matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
 
-    # Proses Data
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
         tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
@@ -80,21 +79,24 @@ def convert_to_matrix_final(df_f):
         u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
             u_up, q_str = u.strip().upper(), q.strip()
-            matrix_data.append({'UBAT_ORIG': u_up, 'PESAKIT': p, 'QTY': q_str})
+            matrix_data.append({'UBAT': u_up, 'PESAKIT': p, 'QTY': q_str})
             try:
                 num = int(''.join(filter(str.isdigit, q_str)))
-                calc_dict[u_up] = calc_dict.get(u_up, 0) + num
+                calc_data.append({'UBAT': u_up, 'VAL': num})
             except: pass
 
-    # Bina DataFrame Matrix
     df_m = pd.DataFrame(matrix_data)
-    # Tukar Nama Ubat kepada format (TOTAL) NAMA
-    df_m['UBAT'] = df_m['UBAT_ORIG'].apply(lambda x: f"({calc_dict.get(x, 0)}) {x}")
-    
     matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
     
-    # Header Info
+    # Bina Kolom Total dan letakkan di sebelah kanan Index (UBAT)
+    if calc_data:
+        totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
+        matrix.insert(0, "📊 TOTAL", totals)
+    
     header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
+    # Pastikan header juga ada kolum TOTAL kosong supaya selari
+    header.insert(0, "📊 TOTAL", "")
+    
     return pd.concat([header, matrix], sort=False).fillna("")
 
 # --- 4. UI ---
