@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, date
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V4.6", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V4.7", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -12,7 +12,7 @@ if 'bakul' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST UBAT (TERMASUK 2 UBAT BARU) ---
+# --- 2. MASTER LIST UBAT ---
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -32,24 +32,15 @@ MASTER_UBAT = sorted([
     "EMPAGLIFLOZIN 25MG TAB", "EMULSIFYING OINTMENT BP", "EZETIMIBE 10 MG TAB", "FELODIPINE 10MG ER", "FENOFIBRATE 145MG",
     "FERRIC AMMONIUM CITRATE 400MG/5ML", "FINASTERIDE 5 MG", "FLUPENTHIXOL DECOANTE DEPOT 20MG/ML INJ",
     "FLUTICASONE PROPIONATE 125MCG/DOSE EVOHALER", "FLUVOXAMINE 50MG", "FUSIDIC ACID 1% EYE DROPS", "GABAPENTIN 300MG",
-    "GEMFIBROZIL 300MG", "GLICLAZIDE 80 MG", "GLICLAZIDE MR 60MG", "HYPROMELLOSE 0.3% EYE DROP", "IBERET FOLIC",
-    
-    # --- UBAT BARU ---
-    "HUMAN, PREMIXED (DIABULYN-30/70) 100 IU/ML PENFILL",
-    
+    "GEMFIBROZIL 300MG", "GLICLAZIDE 80 MG", "GLICLAZIDE MR 60MG", "HUMAN, PREMIXED (DIABULYN-30/70) 100 IU/ML PENFILL", "HYPROMELLOSE 0.3% EYE DROP", "IBERET FOLIC",
     "INSUGEN 30/70", "INSUGEN N", "INSUGEN R", "INSULATARD", "INSULIN GLARGINE LANTUS", "INSUPEN",
     "BERODUAL INHALER", "IVABRADINE 5 MG", "KETOPROFEN 2.5% GEL", "LACTULOSE LIQUID",
     "LAMOTRIGINE 100MG TAB", "LAMOTRIGINE 50MG TAB", "LATANAPROST 0.005% EYE DROP", "LEVETIRACETAM 500MG", "LORATADINE 10MG",
     "LORAZEPAM 1MG", "METFORMIN XR 750 MG", "METHOTREXATE 2.5MG", "MIRABEGRON 50 MG", "MIRTAZAPINE 15 MG",
     "MIRTAZAPINE 30 MG", "MIXTARD", "MOMETASONE FUROATE 0.1% CREAM", "MONTELUKAST 10 MG", "MOXIFLOXACIN 0.5% OPHTHALMIC SOLUTION",
     "NEPAFENAC 0.1% W/V EYE SUSPENSION", "OLANZAPINE 10MG TAB", "OMEPRAZOLE 20MG CAPSULE", "PALIPERIDONE INJECTION",
-    "PANTOPRAZOLE 40MG", "SEBITAR SHAMPOO", "QUETIAPINE FUMARATE 100MG IR",
-    "QUETIAPINE FUMARATE 200MG ER", "QUETIAPINE FUMARATE 50MG ER", 
-    
-    # --- UBAT BARU ---
-    "SACUBITRIL 49MG, VALSARTAN 51MG TABLET",
-    
-    "SALICYCLIC ACID 5% OINMENT",
+    "PANTOPRAZOLE 40MG", "SACUBITRIL 49MG, VALSARTAN 51MG TABLET", "SEBITAR SHAMPOO", "QUETIAPINE FUMARATE 100MG IR",
+    "QUETIAPINE FUMARATE 200MG ER", "QUETIAPINE FUMARATE 50MG ER", "SALICYCLIC ACID 5% OINMENT",
     "SALICYCLIC ACID, SULPHUR AND LIQUID COAL TAR", "SALICYLIC ACID 10% OINTMENT", "SALMETEROL 25/FLUTICASONE 125 EVOHALER",
     "SALMETEROL 50/FLUTICASONE 500 ACCUHALER", "SIMVASTATIN 40 MG", "URINARY ALKALINIZER SACHET",
     "SODIUM VALPROATE SYRUP", "SPIRONOLACTONE 25MG", "COTRIMOXAZOLE 480MG TAB", 
@@ -78,8 +69,9 @@ def hitung_durasi(tca_u, tca_d):
 
 def convert_to_matrix_final(df_f):
     if df_f.empty: return pd.DataFrame()
-    matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
+    matrix_data, info_u, info_d, info_dur, calc_dict = [], {}, {}, {}, {}
 
+    # Proses Data
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
         tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
@@ -88,18 +80,20 @@ def convert_to_matrix_final(df_f):
         u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
             u_up, q_str = u.strip().upper(), q.strip()
-            matrix_data.append({'UBAT': u_up, 'PESAKIT': p, 'QTY': q_str})
+            matrix_data.append({'UBAT_ORIG': u_up, 'PESAKIT': p, 'QTY': q_str})
             try:
                 num = int(''.join(filter(str.isdigit, q_str)))
-                calc_data.append({'UBAT': u_up, 'VAL': num})
+                calc_dict[u_up] = calc_dict.get(u_up, 0) + num
             except: pass
 
+    # Bina DataFrame Matrix
     df_m = pd.DataFrame(matrix_data)
-    matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
-    if calc_data:
-        totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
-        matrix.insert(0, "📊 TOTAL", totals)
+    # Tukar Nama Ubat kepada format (TOTAL) NAMA
+    df_m['UBAT'] = df_m['UBAT_ORIG'].apply(lambda x: f"({calc_dict.get(x, 0)}) {x}")
     
+    matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
+    
+    # Header Info
     header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
     return pd.concat([header, matrix], sort=False).fillna("")
 
