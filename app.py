@@ -3,12 +3,17 @@ import pandas as pd
 import requests
 from datetime import datetime, date
 
-st.set_page_config(page_title="SUPS HJEM V4.1", layout="wide")
+# --- 1. SETTING AWAL (MESTI DI ATAS SEKALI) ---
+st.set_page_config(page_title="SUPS HJEM V4.2", layout="wide")
+
+# INISIALISASI BAKUL (Penting: Letak di sini supaya ralat AttributeError hilang)
+if 'bakul' not in st.session_state:
+    st.session_state.bakul = []
 
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- MASTER LIST 131 UBAT (A-Z) ---
+# --- 2. MASTER LIST 131 UBAT ---
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -20,7 +25,7 @@ MASTER_UBAT = sorted([
     "BETAMETHASONE 17-VALERATE 0.1% CREAM", "BRIMONIDINE TARTRATE 0.15% OPTH SOL.", 
     "BUDESONIDE 160MCG AND FORMETEROL 4.5MCG TURBUHALER 120 DOSES", "CALCIPOTRIO 50 MCG/G BETAMETASONE 0.5MG/G OINT",
     "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LAKTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
-    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
+    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE hcl 10mg", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
     "CLOBETASONE BUTYRATE 0.05% OINMT", "CLOPIDOGREL 75MG TAB", "COAL TAR (LPC) 3% OINTMENT", "COAL TAR (LPC) 6% OINMENT",
     "COAL TAR 1 % SALICYCLIC ACID 2 % SHAMPOO", "COAL TAR 12% SALICYLIC ACID 2% SULPHUR 4% OINT.", "DABIGATRAN ETEXILATE 150MG CAP",
     "DAPAGLIFLOZIN 10MG", "DEXAMETHASONE SODIUM PHOSPHATE 0.1% EYE DROPS", "DEXAMETHASONE,NEOMYCIN,POLYMYXIN B (MAXITROL)",
@@ -47,6 +52,7 @@ MASTER_UBAT = sorted([
     "WARFARIN 5MG", "WHITE PETROLEUM EYE OINT", "WHITE PETROLEUM JELLY"
 ])
 
+# --- 3. FUNGSI ---
 def load_data():
     try:
         df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
@@ -54,102 +60,87 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-# --- LOGIK BARU: KIRA BEZA ANTARA DUA TARIKH INPUT ---
 def hitung_durasi(tca_ubat, tca_dr):
     if not tca_ubat or not tca_dr or tca_ubat == "-" or tca_dr == "-":
         return "-"
     try:
         d1 = datetime.strptime(str(tca_ubat), "%Y-%m-%d")
         d2 = datetime.strptime(str(tca_dr), "%Y-%m-%d")
-        beza = (d2 - d1).days
-        return f"{beza} HARI"
+        return f"{(d2 - d1).days} HARI"
     except: return "-"
 
 def convert_to_matrix_final(df_filtered):
     if df_filtered.empty: return pd.DataFrame()
-
-    matrix_data = []
-    info_tca_ubat = {}
-    info_tca_dr = {}
-    info_durasi = {}
-    calc_data = []
+    matrix_data, info_tca_ubat, info_tca_dr, info_durasi, calc_data = [], {}, {}, {}, []
 
     for _, row in df_filtered.iterrows():
         p_name = str(row['NAMA']).strip().upper()
-        tca_u = str(row.get('TCA_UBAT', '-'))
-        tca_d = str(row.get('TCA_CLINIC', '-'))
-        
-        info_tca_ubat[p_name] = tca_u
-        info_tca_dr[p_name] = tca_d
-        # Kira durasi antara TCA Ubat dan TCA Dr
+        tca_u, tca_d = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
+        info_tca_ubat[p_name], info_tca_dr[p_name] = tca_u, tca_d
         info_durasi[p_name] = hitung_durasi(tca_u, tca_d)
         
-        u_list = str(row['UBAT_LIST']).split(' | ')
-        q_list = str(row['KUANTITI']).split(' | ')
-        
+        u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
-            u_up = u.strip().upper()
-            q_str = q.strip()
+            u_up, q_str = u.strip().upper(), q.strip()
             try:
                 num = int(''.join(filter(str.isdigit, q_str)))
-            except: num = 0
-            
+                calc_data.append({'UBAT': u_up, 'VAL': num})
+            except: pass
             matrix_data.append({'UBAT': u_up, 'PESAKIT': p_name, 'QTY': q_str})
-            calc_data.append({'UBAT': u_up, 'VAL': num})
-
-    if not matrix_data: return pd.DataFrame()
 
     df_matrix = pd.DataFrame(matrix_data)
     matrix = df_matrix.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
-
-    # Kira Total (Integer)
-    df_calc = pd.DataFrame(calc_data)
-    totals = df_calc.groupby('UBAT')['VAL'].sum().astype(int)
-    matrix.insert(0, "📊 TOTAL", totals)
-
-    # Bina Header Info (Susun ikut keutamaan)
-    header_info = pd.DataFrame([info_tca_ubat, info_tca_dr, info_durasi], 
-                               index=["📅 TCA AMBIL UBAT", "👨‍⚕️ TCA KLINIK (DR)", "⏳ DURASI BEKALAN"])
+    if calc_data:
+        totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
+        matrix.insert(0, "📊 TOTAL", totals)
     
+    header_info = pd.DataFrame([info_tca_ubat, info_tca_dr, info_durasi], index=["📅 TCA AMBIL", "👨‍⚕️ TCA KLINIK", "⏳ DURASI"])
     return pd.concat([header_info, matrix], sort=False).fillna("")
 
-# --- UI ---
+# --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
 if menu == "📝 INPUT":
-    st.header("Input Data Pesakit")
-    with st.form("input_form"):
+    st.header("Pendaftaran Rekod")
+    with st.form("form_input", clear_on_submit=False):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama Pesakit:").upper()
         ic = c2.text_input("IC:").upper()
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
         c4, c5 = st.columns(2)
-        t_u = c4.date_input("Tarikh TCA Ambil Ubat:", value=date.today())
-        t_d = c5.date_input("Tarikh TCA Klinik (Dr):", value=None)
+        t_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
+        t_d = c5.date_input("TCA Klinik (Dr):", value=None)
         
         st.divider()
         u1, u2 = st.columns([3, 1])
-        p_u = u1.selectbox("Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        p_q = u2.text_input("Kuantiti (Nombor):")
+        p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        p_q = u2.text_input("Qty:")
         
-        if st.form_submit_button("➕ Tambah Ke Bakul") and p_u != "-- PILIH --" and p_q:
-            st.session_state.bakul.append({"u": p_u, "q": p_q})
+        if st.form_submit_button("➕ Tambah ke Bakul"):
+            if p_u != "-- PILIH --" and p_q:
+                st.session_state.bakul.append({"u": p_u, "q": p_q})
+                st.rerun()
 
     if st.session_state.bakul:
+        st.write("### 🛒 Bakul Sementara")
         st.table(pd.DataFrame(st.session_state.bakul))
         if st.button("💾 SIMPAN SEMUA", type="primary"):
-            u_str = " | ".join([x['u'] for x in st.session_state.bakul])
-            q_str = " | ".join([x['q'] for x in st.session_state.bakul])
-            payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": u_str, "Kuantiti": q_str, "Batch": batch}
+            payload = {
+                "Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), 
+                "TCA_Clinic": str(t_d) if t_d else "-",
+                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
+                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]),
+                "Batch": batch
+            }
             requests.post(URL_API, json=payload)
-            st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
+            st.success("Data Berhasil Disimpan!"); st.session_state.bakul = []; st.balloons()
 
 elif menu == "📊 SUMMARY":
-    st.header("Checklist & Durasi Bekalan")
+    st.header("Checklist & Durasi")
     df = load_data()
     if not df.empty:
-        b_sel = st.selectbox("Batch:", sorted(df['BATCH'].unique()))
+        b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
         st.dataframe(res, use_container_width=True, height=600)
