@@ -5,7 +5,7 @@ from datetime import datetime, date
 import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.1", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.2", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -99,6 +99,7 @@ def convert_to_matrix_final(df_f):
     header.insert(0, "📊 TOTAL", "")
     return pd.concat([header, matrix], sort=False).fillna("")
 
+# --- FUNGSI DOWNLOAD EXCEL (HIASAN PENUH) ---
 def to_excel_colored(df):
     output = io.BytesIO()
     try:
@@ -106,19 +107,38 @@ def to_excel_colored(df):
         df.to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        fmt_yellow = workbook.add_format({'bg_color': '#FFFFE0', 'border': 1})
-        fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1})
-        fmt_header = workbook.add_format({'bg_color': '#D3D3D3', 'bold': True, 'border': 1})
+        
+        # FORMAT WARNA (KUNING PEKAT & PUTIH)
+        fmt_yellow = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_header = workbook.add_format({'bg_color': '#C0C0C0', 'bold': True, 'border': 1, 'align': 'center'})
+        
+        # Format Khas Kolum A (Ubat) - Align Left supaya mudah baca nama
+        fmt_ubat_y = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'left'})
+        fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
+
+        num_cols = len(df.columns) + 1 # +1 untuk Index (Ubat)
+        
         for row_num in range(len(df) + 1):
-            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
+            if row_num == 0:
+                worksheet.set_row(row_num, None, fmt_header)
             else:
-                fmt = fmt_yellow if row_num % 2 == 0 else fmt_white
-                worksheet.set_row(row_num, None, fmt)
-        worksheet.set_column(0, 0, 45) 
-        worksheet.set_column(1, len(df.columns), 18)
+                # Tentukan warna baris
+                is_yellow = row_num % 2 == 0
+                current_fmt = fmt_yellow if is_yellow else fmt_white
+                ubat_fmt = fmt_ubat_y if is_yellow else fmt_ubat_w
+                
+                # Apply format ke baris tersebut
+                worksheet.set_row(row_num, None, current_fmt)
+                # Paksa Kolum A (Ubat) guna format left-align
+                worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
+
+        worksheet.set_column(0, 0, 45) # Lebar Nama Ubat
+        worksheet.set_column(1, 1, 12) # Lebar Total
+        worksheet.set_column(2, num_cols, 18) # Lebar Pesakit
+        
         writer.close()
     except:
-        # Fallback if engine fails
         df.to_excel(output, index=True)
     return output.getvalue()
 
@@ -166,8 +186,7 @@ elif menu == "📊 SUMMARY":
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
         
-        # Zebra style for Web
-        st.dataframe(res.style.apply(lambda x: ['background-color: #FFFFE0' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
+        st.dataframe(res.style.apply(lambda x: ['background-color: #FFFF00' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
         
         excel_data = to_excel_colored(res)
         st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
