@@ -5,7 +5,7 @@ from datetime import datetime, date
 import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.0", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.1", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -99,34 +99,27 @@ def convert_to_matrix_final(df_f):
     header.insert(0, "📊 TOTAL", "")
     return pd.concat([header, matrix], sort=False).fillna("")
 
-# --- FUNGSI DOWNLOAD EXCEL BERWARNA ---
 def to_excel_colored(df):
     output = io.BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=True, sheet_name='Summary')
-    workbook  = writer.book
-    worksheet = writer.sheets['Summary']
-    
-    # Format Warna
-    fmt_yellow = workbook.add_format({'bg_color': '#FFFFE0', 'border': 1})
-    fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1})
-    fmt_header = workbook.add_format({'bg_color': '#D3D3D3', 'bold': True, 'border': 1})
-
-    # Adjust Kolum & Warna Selang Seli
-    for row_num in range(len(df) + 1):
-        # Header (Row 0)
-        if row_num == 0:
-            worksheet.set_row(row_num, None, fmt_header)
-        else:
-            # Selang seli kuning/putih
-            fmt = fmt_yellow if row_num % 2 == 0 else fmt_white
-            worksheet.set_row(row_num, None, fmt)
-
-    # Auto-adjust lebar kolum
-    worksheet.set_column(0, 0, 40) # Kolum Nama Ubat
-    worksheet.set_column(1, len(df.columns), 15) # Kolum Pesakit
-    
-    writer.close()
+    try:
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        df.to_excel(writer, index=True, sheet_name='Summary')
+        workbook  = writer.book
+        worksheet = writer.sheets['Summary']
+        fmt_yellow = workbook.add_format({'bg_color': '#FFFFE0', 'border': 1})
+        fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1})
+        fmt_header = workbook.add_format({'bg_color': '#D3D3D3', 'bold': True, 'border': 1})
+        for row_num in range(len(df) + 1):
+            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
+            else:
+                fmt = fmt_yellow if row_num % 2 == 0 else fmt_white
+                worksheet.set_row(row_num, None, fmt)
+        worksheet.set_column(0, 0, 45) 
+        worksheet.set_column(1, len(df.columns), 18)
+        writer.close()
+    except:
+        # Fallback if engine fails
+        df.to_excel(output, index=True)
     return output.getvalue()
 
 # --- 4. UI ---
@@ -163,7 +156,7 @@ if menu == "📝 INPUT":
         if st.button("💾 SIMPAN", type="primary"):
             payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
             requests.post(URL_API, json=payload)
-            st.success("Simpan!"); st.session_state.bakul = []; st.balloons()
+            st.success("Berjaya!"); st.session_state.bakul = []; st.balloons()
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
@@ -173,9 +166,8 @@ elif menu == "📊 SUMMARY":
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
         
-        # Paparan Web
+        # Zebra style for Web
         st.dataframe(res.style.apply(lambda x: ['background-color: #FFFFE0' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
         
-        # Butang Download Excel
         excel_data = to_excel_colored(res)
         st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
