@@ -5,7 +5,7 @@ from datetime import datetime, date
 import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.2", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.3", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -25,7 +25,7 @@ MASTER_UBAT = sorted([
     "BETAMETHASONE 17-VALERATE 0.1% CREAM", "BRIMONIDINE TARTRATE 0.15% OPTH SOL.", 
     "BUDESONIDE 160MCG AND FORMETEROL 4.5MCG TURBUHALER 120 DOSES", "CALCIPOTRIO 50 MCG/G BETAMETASONE 0.5MG/G OINT",
     "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LAKTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
-    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
+    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASOL BUTYRATE 0.05% CREAM",
     "CLOBETASONE BUTYRATE 0.05% OINMT", "CLOPIDOGREL 75MG TAB", "COAL TAR (LPC) 3% OINTMENT", "COAL TAR (LPC) 6% OINMENT",
     "COAL TAR 1 % SALICYCLIC ACID 2 % SHAMPOO", "COAL TAR 12% SALICYLIC ACID 2% SULPHUR 4% OINT.", "DABIGATRAN ETEXILATE 150MG CAP",
     "DAPAGLIFLOZIN 10MG", "DEXAMETHASONE SODIUM PHOSPHATE 0.1% EYE DROPS", "DEXAMETHASONE,NEOMYCIN,POLYMYXIN B (MAXITROL)",
@@ -99,7 +99,6 @@ def convert_to_matrix_final(df_f):
     header.insert(0, "📊 TOTAL", "")
     return pd.concat([header, matrix], sort=False).fillna("")
 
-# --- FUNGSI DOWNLOAD EXCEL (HIASAN PENUH) ---
 def to_excel_colored(df):
     output = io.BytesIO()
     try:
@@ -107,39 +106,25 @@ def to_excel_colored(df):
         df.to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        
-        # FORMAT WARNA (KUNING PEKAT & PUTIH)
         fmt_yellow = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_header = workbook.add_format({'bg_color': '#C0C0C0', 'bold': True, 'border': 1, 'align': 'center'})
-        
-        # Format Khas Kolum A (Ubat) - Align Left supaya mudah baca nama
         fmt_ubat_y = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'left'})
         fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
-
-        num_cols = len(df.columns) + 1 # +1 untuk Index (Ubat)
-        
+        num_cols = len(df.columns) + 1
         for row_num in range(len(df) + 1):
-            if row_num == 0:
-                worksheet.set_row(row_num, None, fmt_header)
+            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
             else:
-                # Tentukan warna baris
                 is_yellow = row_num % 2 == 0
                 current_fmt = fmt_yellow if is_yellow else fmt_white
                 ubat_fmt = fmt_ubat_y if is_yellow else fmt_ubat_w
-                
-                # Apply format ke baris tersebut
                 worksheet.set_row(row_num, None, current_fmt)
-                # Paksa Kolum A (Ubat) guna format left-align
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
-
-        worksheet.set_column(0, 0, 45) # Lebar Nama Ubat
-        worksheet.set_column(1, 1, 12) # Lebar Total
-        worksheet.set_column(2, num_cols, 18) # Lebar Pesakit
-        
+        worksheet.set_column(0, 0, 45)
+        worksheet.set_column(1, 1, 12)
+        worksheet.set_column(2, num_cols, 18)
         writer.close()
-    except:
-        df.to_excel(output, index=True)
+    except: df.to_excel(output, index=True)
     return output.getvalue()
 
 # --- 4. UI ---
@@ -147,36 +132,55 @@ menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
-    with st.form("main_form"):
+    
+    # --- BAHAGIAN NAMA & TARIKH (Dikeluarkan dari Form untuk Live Update) ---
+    with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama:").upper()
         ic = c2.text_input("IC:").upper()
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
+        
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr):", value=None)
+        
+        # Countdown Serta-merta (Live Update)
         if t_d:
             baki = (t_d - t_u).days
-            if baki > 0: st.info(f"⏳ **Baki: {baki} Hari**")
-        st.divider()
+            if baki > 0:
+                st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
+            elif baki == 0:
+                st.warning("📅 Tarikh sama dengan hari ini.")
+            else:
+                st.error("⚠️ Tarikh klinik tidak boleh sebelum tarikh ambil ubat!")
+
+    # --- BAHAGIAN TAMBAH UBAT (Guna Form) ---
+    with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        if st.form_submit_button("➕ Tambah"):
+        
+        if st.form_submit_button("➕ Tambah Ke Bakul"):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
 
+    # --- BAKUL & SIMPAN ---
     if st.session_state.bakul:
+        st.write("### 🛒 Bakul Sementara")
         for i, item in enumerate(st.session_state.bakul):
             col_a, col_b, col_c = st.columns([3, 1, 1])
             col_a.write(f"**{item['u']}**"); col_b.write(f"{item['q']}")
             if col_c.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
-        if st.button("💾 SIMPAN", type="primary"):
-            payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
-            requests.post(URL_API, json=payload)
-            st.success("Berjaya!"); st.session_state.bakul = []; st.balloons()
+        
+        if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
+            if nama and ic and t_d:
+                payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
+                requests.post(URL_API, json=payload)
+                st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
+            else:
+                st.error("Pastikan Nama, IC, dan Tarikh Klinik telah diisi!")
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
@@ -185,8 +189,6 @@ elif menu == "📊 SUMMARY":
         b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
-        
         st.dataframe(res.style.apply(lambda x: ['background-color: #FFFF00' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
-        
         excel_data = to_excel_colored(res)
         st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
