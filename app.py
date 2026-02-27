@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, date
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V4.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V4.9", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -59,12 +59,20 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
+def format_tarikh(t_str):
+    if not t_str or t_str == "-": return "-"
+    try:
+        dt = datetime.strptime(str(t_str), "%Y-%m-%d")
+        return dt.strftime("%d/%m/%Y")
+    except: return t_str
+
 def hitung_durasi(tca_u, tca_d):
     if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "-"
     try:
-        d1 = datetime.strptime(str(tca_u), "%Y-%m-%d")
-        d2 = datetime.strptime(str(tca_d), "%Y-%m-%d")
-        return f"{(d2 - d1).days} HARI"
+        d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
+        d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
+        diff = (d2 - d1).days
+        return f"{diff} HARI"
     except: return "-"
 
 def convert_to_matrix_final(df_f):
@@ -74,7 +82,10 @@ def convert_to_matrix_final(df_f):
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
         tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
-        info_u[p], info_d[p], info_dur[p] = tu, td, hitung_durasi(tu, td)
+        # Format tarikh ke DD/MM/YYYY
+        info_u[p] = format_tarikh(tu)
+        info_d[p] = format_tarikh(td)
+        info_dur[p] = hitung_durasi(tu, td)
         
         u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
@@ -88,13 +99,11 @@ def convert_to_matrix_final(df_f):
     df_m = pd.DataFrame(matrix_data)
     matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
     
-    # Bina Kolom Total dan letakkan di sebelah kanan Index (UBAT)
     if calc_data:
         totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
         matrix.insert(0, "📊 TOTAL", totals)
     
     header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
-    # Pastikan header juga ada kolum TOTAL kosong supaya selari
     header.insert(0, "📊 TOTAL", "")
     
     return pd.concat([header, matrix], sort=False).fillna("")
@@ -111,15 +120,25 @@ if menu == "📝 INPUT":
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
         
         c4, c5 = st.columns(2)
-        t_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
+        t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr):", value=None)
+        
+        # --- LIVE COUNTDOWN ---
+        if t_d:
+            baki = (t_d - t_u).days
+            if baki > 0:
+                st.info(f"⏳ **Baki: {baki} Hari** (Gunakan nilai ini untuk kira kuantiti ubat)")
+            elif baki == 0:
+                st.warning("📅 Tarikh sama dengan hari ini.")
+            else:
+                st.error("⚠️ Tarikh klinik tidak boleh sebelum tarikh ambil ubat!")
         
         st.divider()
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
         
-        if st.form_submit_button("➕ Tambah"):
+        if st.form_submit_button("➕ Tambah Ke Bakul"):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
@@ -152,5 +171,10 @@ elif menu == "📊 SUMMARY":
         b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
-        st.dataframe(res, use_container_width=True, height=600)
+        
+        # --- STYLE SELANG SELI KUNING (STYLING) ---
+        def style_zebra(df):
+            return df.style.apply(lambda x: ['background-color: #FFFFE0' if i % 2 == 0 else '' for i in range(len(df))], axis=0)
+
+        st.dataframe(style_zebra(res), use_container_width=True, height=600)
         st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"{b_sel}.csv")
