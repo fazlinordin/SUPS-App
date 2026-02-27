@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime, date
+import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V4.9", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.0", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -64,29 +65,23 @@ def format_tarikh(t_str):
     try:
         dt = datetime.strptime(str(t_str), "%Y-%m-%d")
         return dt.strftime("%d/%m/%Y")
-    except: return t_str
+    except: return str(t_str)
 
 def hitung_durasi(tca_u, tca_d):
     if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "-"
     try:
         d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
         d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
-        diff = (d2 - d1).days
-        return f"{diff} HARI"
+        return f"{(d2 - d1).days} HARI"
     except: return "-"
 
 def convert_to_matrix_final(df_f):
     if df_f.empty: return pd.DataFrame()
     matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
-
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
         tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
-        # Format tarikh ke DD/MM/YYYY
-        info_u[p] = format_tarikh(tu)
-        info_d[p] = format_tarikh(td)
-        info_dur[p] = hitung_durasi(tu, td)
-        
+        info_u[p], info_d[p], info_dur[p] = format_tarikh(tu), format_tarikh(td), hitung_durasi(tu, td)
         u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
             u_up, q_str = u.strip().upper(), q.strip()
@@ -95,18 +90,44 @@ def convert_to_matrix_final(df_f):
                 num = int(''.join(filter(str.isdigit, q_str)))
                 calc_data.append({'UBAT': u_up, 'VAL': num})
             except: pass
-
     df_m = pd.DataFrame(matrix_data)
     matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
-    
     if calc_data:
         totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
         matrix.insert(0, "📊 TOTAL", totals)
-    
     header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
     header.insert(0, "📊 TOTAL", "")
-    
     return pd.concat([header, matrix], sort=False).fillna("")
+
+# --- FUNGSI DOWNLOAD EXCEL BERWARNA ---
+def to_excel_colored(df):
+    output = io.BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, index=True, sheet_name='Summary')
+    workbook  = writer.book
+    worksheet = writer.sheets['Summary']
+    
+    # Format Warna
+    fmt_yellow = workbook.add_format({'bg_color': '#FFFFE0', 'border': 1})
+    fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1})
+    fmt_header = workbook.add_format({'bg_color': '#D3D3D3', 'bold': True, 'border': 1})
+
+    # Adjust Kolum & Warna Selang Seli
+    for row_num in range(len(df) + 1):
+        # Header (Row 0)
+        if row_num == 0:
+            worksheet.set_row(row_num, None, fmt_header)
+        else:
+            # Selang seli kuning/putih
+            fmt = fmt_yellow if row_num % 2 == 0 else fmt_white
+            worksheet.set_row(row_num, None, fmt)
+
+    # Auto-adjust lebar kolum
+    worksheet.set_column(0, 0, 40) # Kolum Nama Ubat
+    worksheet.set_column(1, len(df.columns), 15) # Kolum Pesakit
+    
+    writer.close()
+    return output.getvalue()
 
 # --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
@@ -118,51 +139,31 @@ if menu == "📝 INPUT":
         nama = c1.text_input("Nama:").upper()
         ic = c2.text_input("IC:").upper()
         batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
-        
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr):", value=None)
-        
-        # --- LIVE COUNTDOWN ---
         if t_d:
             baki = (t_d - t_u).days
-            if baki > 0:
-                st.info(f"⏳ **Baki: {baki} Hari** (Gunakan nilai ini untuk kira kuantiti ubat)")
-            elif baki == 0:
-                st.warning("📅 Tarikh sama dengan hari ini.")
-            else:
-                st.error("⚠️ Tarikh klinik tidak boleh sebelum tarikh ambil ubat!")
-        
+            if baki > 0: st.info(f"⏳ **Baki: {baki} Hari**")
         st.divider()
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        
-        if st.form_submit_button("➕ Tambah Ke Bakul"):
+        if st.form_submit_button("➕ Tambah"):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
 
     if st.session_state.bakul:
-        st.write("### 🛒 Bakul Sementara")
         for i, item in enumerate(st.session_state.bakul):
             col_a, col_b, col_c = st.columns([3, 1, 1])
-            col_a.write(f"**{item['u']}**")
-            col_b.write(f"{item['q']}")
+            col_a.write(f"**{item['u']}**"); col_b.write(f"{item['q']}")
             if col_c.button("🗑️", key=f"del_{i}"):
-                st.session_state.bakul.pop(i)
-                st.rerun()
-
-        if st.button("💾 SIMPAN KE GOOGLE SHEET", type="primary"):
-            payload = {
-                "Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), 
-                "TCA_Clinic": str(t_d) if t_d else "-",
-                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
-                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]),
-                "Batch": batch
-            }
+                st.session_state.bakul.pop(i); st.rerun()
+        if st.button("💾 SIMPAN", type="primary"):
+            payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
             requests.post(URL_API, json=payload)
-            st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
+            st.success("Simpan!"); st.session_state.bakul = []; st.balloons()
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
@@ -172,9 +173,9 @@ elif menu == "📊 SUMMARY":
         df_f = df[df['BATCH'] == b_sel]
         res = convert_to_matrix_final(df_f)
         
-        # --- STYLE SELANG SELI KUNING (STYLING) ---
-        def style_zebra(df):
-            return df.style.apply(lambda x: ['background-color: #FFFFE0' if i % 2 == 0 else '' for i in range(len(df))], axis=0)
-
-        st.dataframe(style_zebra(res), use_container_width=True, height=600)
-        st.download_button("📥 Muat Turun CSV", res.to_csv().encode('utf-8'), f"{b_sel}.csv")
+        # Paparan Web
+        st.dataframe(res.style.apply(lambda x: ['background-color: #FFFFE0' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
+        
+        # Butang Download Excel
+        excel_data = to_excel_colored(res)
+        st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
