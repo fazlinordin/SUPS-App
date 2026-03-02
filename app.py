@@ -5,9 +5,8 @@ from datetime import datetime, date
 import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.4", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.5", layout="wide")
 
-# Inisialisasi Session State
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'pilihan_batch' not in st.session_state:
@@ -17,6 +16,7 @@ URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
 # --- 2. MASTER LIST UBAT ---
+# (Senarai ubat kekal sama seperti sebelumnya)
 MASTER_UBAT = sorted([
     "ACETAZOLAMIDE 250MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
@@ -64,19 +64,19 @@ def load_data():
     except: return pd.DataFrame()
 
 def format_tarikh(t_str):
-    if not t_str or t_str == "-": return "-"
+    if not t_str or t_str == "-" or str(t_str).strip() == "": return "-"
     try:
         dt = datetime.strptime(str(t_str), "%Y-%m-%d")
         return dt.strftime("%d/%m/%Y")
     except: return str(t_str)
 
 def hitung_durasi(tca_u, tca_d):
-    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "-"
+    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "TIADA DATA"
     try:
         d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
         d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
         return f"{(d2 - d1).days} HARI"
-    except: return "-"
+    except: return "TIADA DATA"
 
 def convert_to_matrix_final(df_f):
     if df_f.empty: return pd.DataFrame()
@@ -132,8 +132,6 @@ def to_excel_colored(df):
 
 # --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
-
-# Senarai Batch Universal
 SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
 if menu == "📝 INPUT":
@@ -143,19 +141,20 @@ if menu == "📝 INPUT":
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama:").upper()
         ic = c2.text_input("IC:").upper()
-        
-        # Pilihan Batch yang "Ingat" (Persistent)
         idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
-        st.session_state.pilihan_batch = batch # Simpan ke session state
+        st.session_state.pilihan_batch = batch 
         
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
-        t_d = c5.date_input("TCA Klinik (Dr):", value=None)
+        # TCA DR sekarang boleh kosong
+        t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
         
         if t_d:
             baki = (t_d - t_u).days
             if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
+        else:
+            st.info("ℹ️ Tarikh klinik dikosongkan. Durasi tidak akan dikira.")
 
     with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
@@ -174,38 +173,42 @@ if menu == "📝 INPUT":
                 st.session_state.bakul.pop(i); st.rerun()
         
         if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
-            if nama and ic and t_d:
-                payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
+            if nama and ic: # Hanya Nama & IC wajib
+                payload = {
+                    "Nama": nama, 
+                    "IC": ic, 
+                    "TCA_Ubat": str(t_u), 
+                    "TCA_Clinic": str(t_d) if t_d else "-", # Hantar tanda sengkang jika kosong
+                    "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
+                    "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), 
+                    "Batch": batch
+                }
                 requests.post(URL_API, json=payload)
                 st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
-            else: st.error("Lengkapkan Nama, IC dan Tarikh!")
+            else: 
+                st.error("Sila isi Nama dan IC sebelum simpan!")
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
     if not df.empty:
-        # Pilihan Batch yang "Ingat" (Persistent)
         idx_batch_s = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         b_sel = st.selectbox("Pilih Batch:", SENARAI_BATCH, index=idx_batch_s)
-        st.session_state.pilihan_batch = b_sel # Simpan ke session state
-        
+        st.session_state.pilihan_batch = b_sel 
         df_f = df[df['BATCH'] == b_sel]
         
         if not df_f.empty:
-            # --- FUNGSI DELETE PESAKIT ---
-            with st.expander("🗑️ PADAM REKOD PESAKIT (Jika salah Batch)"):
+            with st.expander("🗑️ PADAM REKOD PESAKIT"):
                 pesakit_list = sorted(df_f['NAMA'].unique())
-                p_padam = st.selectbox("Pilih Pesakit untuk dipadam:", ["-- PILIH --"] + pesakit_list)
-                if st.button("❗ PADAM SEKARANG", type="secondary"):
+                p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + pesakit_list)
+                if st.button("❗ PADAM"):
                     if p_padam != "-- PILIH --":
                         requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": b_sel})
-                        st.warning(f"Rekod {p_padam} telah dipadam. Sila tunggu 2 saat..."); st.rerun()
+                        st.warning("Memadam..."); st.rerun()
             
             res = convert_to_matrix_final(df_f)
             st.dataframe(res.style.apply(lambda x: ['background-color: #FFFF00' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=500)
-            
             excel_data = to_excel_colored(res)
-            st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
-
