@@ -5,10 +5,13 @@ from datetime import datetime, date
 import io
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.3", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.4", layout="wide")
 
+# Inisialisasi Session State
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
+if 'pilihan_batch' not in st.session_state:
+    st.session_state.pilihan_batch = "Mac - Batch 1"
 
 URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
@@ -25,7 +28,7 @@ MASTER_UBAT = sorted([
     "BETAMETHASONE 17-VALERATE 0.1% CREAM", "BRIMONIDINE TARTRATE 0.15% OPTH SOL.", 
     "BUDESONIDE 160MCG AND FORMETEROL 4.5MCG TURBUHALER 120 DOSES", "CALCIPOTRIO 50 MCG/G BETAMETASONE 0.5MG/G OINT",
     "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LAKTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
-    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASOL BUTYRATE 0.05% CREAM",
+    "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
     "CLOBETASONE BUTYRATE 0.05% OINMT", "CLOPIDOGREL 75MG TAB", "COAL TAR (LPC) 3% OINTMENT", "COAL TAR (LPC) 6% OINMENT",
     "COAL TAR 1 % SALICYCLIC ACID 2 % SHAMPOO", "COAL TAR 12% SALICYLIC ACID 2% SULPHUR 4% OINT.", "DABIGATRAN ETEXILATE 150MG CAP",
     "DAPAGLIFLOZIN 10MG", "DEXAMETHASONE SODIUM PHOSPHATE 0.1% EYE DROPS", "DEXAMETHASONE,NEOMYCIN,POLYMYXIN B (MAXITROL)",
@@ -130,42 +133,38 @@ def to_excel_colored(df):
 # --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 
+# Senarai Batch Universal
+SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
+
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     
-    # --- BAHAGIAN NAMA & TARIKH (Dikeluarkan dari Form untuk Live Update) ---
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama:").upper()
         ic = c2.text_input("IC:").upper()
-        batch = c3.selectbox("Batch:", [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]])
+        
+        # Pilihan Batch yang "Ingat" (Persistent)
+        idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
+        batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
+        st.session_state.pilihan_batch = batch # Simpan ke session state
         
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr):", value=None)
         
-        # Countdown Serta-merta (Live Update)
         if t_d:
             baki = (t_d - t_u).days
-            if baki > 0:
-                st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
-            elif baki == 0:
-                st.warning("📅 Tarikh sama dengan hari ini.")
-            else:
-                st.error("⚠️ Tarikh klinik tidak boleh sebelum tarikh ambil ubat!")
+            if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
 
-    # --- BAHAGIAN TAMBAH UBAT (Guna Form) ---
     with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        
         if st.form_submit_button("➕ Tambah Ke Bakul"):
             if p_u != "-- PILIH --" and p_q:
-                st.session_state.bakul.append({"u": p_u, "q": p_q})
-                st.rerun()
+                st.session_state.bakul.append({"u": p_u, "q": p_q}); st.rerun()
 
-    # --- BAKUL & SIMPAN ---
     if st.session_state.bakul:
         st.write("### 🛒 Bakul Sementara")
         for i, item in enumerate(st.session_state.bakul):
@@ -179,16 +178,33 @@ if menu == "📝 INPUT":
                 payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
                 requests.post(URL_API, json=payload)
                 st.success("Tersimpan!"); st.session_state.bakul = []; st.balloons()
-            else:
-                st.error("Pastikan Nama, IC, dan Tarikh Klinik telah diisi!")
+            else: st.error("Lengkapkan Nama, IC dan Tarikh!")
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
     if not df.empty:
-        b_sel = st.selectbox("Pilih Batch:", sorted(df['BATCH'].unique()))
+        # Pilihan Batch yang "Ingat" (Persistent)
+        idx_batch_s = SENARAI_BATCH.index(st.session_state.pilihan_batch)
+        b_sel = st.selectbox("Pilih Batch:", SENARAI_BATCH, index=idx_batch_s)
+        st.session_state.pilihan_batch = b_sel # Simpan ke session state
+        
         df_f = df[df['BATCH'] == b_sel]
-        res = convert_to_matrix_final(df_f)
-        st.dataframe(res.style.apply(lambda x: ['background-color: #FFFF00' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=600)
-        excel_data = to_excel_colored(res)
-        st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        
+        if not df_f.empty:
+            # --- FUNGSI DELETE PESAKIT ---
+            with st.expander("🗑️ PADAM REKOD PESAKIT (Jika salah Batch)"):
+                pesakit_list = sorted(df_f['NAMA'].unique())
+                p_padam = st.selectbox("Pilih Pesakit untuk dipadam:", ["-- PILIH --"] + pesakit_list)
+                if st.button("❗ PADAM SEKARANG", type="secondary"):
+                    if p_padam != "-- PILIH --":
+                        requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": b_sel})
+                        st.warning(f"Rekod {p_padam} telah dipadam. Sila tunggu 2 saat..."); st.rerun()
+            
+            res = convert_to_matrix_final(df_f)
+            st.dataframe(res.style.apply(lambda x: ['background-color: #FFFF00' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=500)
+            
+            excel_data = to_excel_colored(res)
+            st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else:
+            st.info(f"Tiada data untuk {b_sel}")
