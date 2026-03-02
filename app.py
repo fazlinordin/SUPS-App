@@ -13,7 +13,7 @@ if 'bakul' not in st.session_state:
 if 'pilihan_batch' not in st.session_state:
     st.session_state.pilihan_batch = "Mac - Batch 1"
 
-URL_API = "https://script.google.com/macros/s/AKfycbzir4NpkjGqR7XuBTFfxg8tziu7fBSlrHKgUICM_KSfC0MnRScdXh_8oi7uTGfHe01mkg/exec"
+URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
 # --- 2. MASTER LIST UBAT ---
@@ -208,3 +208,4 @@ elif menu == "📊 SUMMARY":
             st.download_button(label="📥 Muat Turun Excel Berwarna (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
+
