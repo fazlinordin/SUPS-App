@@ -18,7 +18,7 @@ URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3
 # --- 2. MASTER LIST UBAT ---
 # (Senarai ubat kekal sama seperti sebelumnya)
 MASTER_UBAT = sorted([
-    "ACETAZOLAMIDE 250MG TAB", "ALENDRONATE SODIUM 70MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
+    "ACETAZOLAMIDE 250MG TAB", "Tiotropium 2.5mcg/puff inhalation Catridge+Inhaler", "ALENDRONATE SODIUM 70MG TAB", "ACETYLSALICYCLIC ACID 150 MG DISPERSIBLE TAB", "ACITRETIN 25MG CAPSULE", "ACTRAPID",
     "ACYCLOVIR 800MG TAB", "ADAPALENE 0.1% GEL", "ALLOPURINOL 100MG TABLET", "AMLODIPINE 10MG + VALSARTAN 160",
     "AMOROLFINE 5% NAIL LACQUER", "APIXABAN 2.5MG FILM COATED TABLET", "APIXABAN 5MG FILM COATED TABLET", "AQUEOUS CREAM",
     "ARIPIPRAZOLE 10MG", "ARTIFICIAL TEARS EYE LUBRICANT (SINGLE USE)", "ARTIFICIAL TEARS EYE LUBRICANT SOLUTION",
@@ -212,5 +212,6 @@ elif menu == "📊 SUMMARY":
             st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
+
 
 
