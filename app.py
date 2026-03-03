@@ -109,7 +109,7 @@ def to_excel_colored(df):
         df.to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        fmt_blue = workbook.add_format({'bg_color': '#DEEAF6', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_yellow = workbook.add_format({'bg_color': '#FFFFE0', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_header = workbook.add_format({'bg_color': '#C0C0C0', 'bold': True, 'border': 1, 'align': 'center'})
         fmt_ubat_y = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'left'})
@@ -212,6 +212,7 @@ elif menu == "📊 SUMMARY":
             st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
+
 
 
 
