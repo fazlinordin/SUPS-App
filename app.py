@@ -116,11 +116,13 @@ def to_excel_colored(df):
         fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
         num_cols = len(df.columns) + 1
         for row_num in range(len(df) + 1):
-            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
+            if row_num == 0:
+                worksheet.set_row(row_num, None, fmt_header)
             else:
-                is_yellow = row_num % 2 == 0
-                current_fmt = fmt_yellow if is_yellow else fmt_white
-                ubat_fmt = fmt_ubat_y if is_yellow else fmt_ubat_w
+                is_blue = row_num % 2 == 0
+                current_fmt = fmt_blue if is_blue else fmt_white
+                ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
+                
                 worksheet.set_row(row_num, None, current_fmt)
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
         worksheet.set_column(0, 0, 45)
@@ -212,6 +214,7 @@ elif menu == "📊 SUMMARY":
             st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
+
 
 
 
