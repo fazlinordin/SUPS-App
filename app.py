@@ -27,7 +27,7 @@ MASTER_UBAT = sorted([
     "BETAMETASONE 17 VALERATE 1 IN 2 CREAM (0.05%)", "BETAMETASONE VALEARATE 1:2 OINMENT", "BETAMETHASONE 17 VALERATE 0.1% OINTMENT",
     "BETAMETHASONE 17-VALERATE 0.1% CREAM", "BRIMONIDINE TARTRATE 0.15% OPTH SOL.", 
     "BUDESONIDE 160MCG AND FORMETEROL 4.5MCG TURBUHALER 120 DOSES", "CALCIPOTRIO 50 MCG/G BETAMETASONE 0.5MG/G OINT",
-    "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LAKTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
+    "CALCITRIOL 0.25 MCG", "CALCIUM CARBONATE 500MG", "CALCIUM LACTATE 300MG", "CARBAMAZEPINE 400MG CR", "CARBAMIDE (UREA) 10% CREAM",
     "CELEXOCIB 200MG", "CETRIMIDE 2% LOTION", "CETRIZINE HCL 10MG", "CLOBETASOL PROPIONATE 0.05% OINT.", "CLOBETASONE BUTYRATE 0.05% CREAM",
     "CLOBETASONE BUTYRATE 0.05% OINMT", "CLOPIDOGREL 75MG TAB", "COAL TAR (LPC) 3% OINTMENT", "COAL TAR (LPC) 6% OINMENT",
     "COAL TAR 1 % SALICYCLIC ACID 2 % SHAMPOO", "COAL TAR 12% SALICYLIC ACID 2% SULPHUR 4% OINT.", "DABIGATRAN ETEXILATE 150MG CAP",
@@ -109,7 +109,7 @@ def to_excel_colored(df):
         df.to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        fmt_yellow = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_blue = workbook.add_format({'bg_color': '#DEEAF6', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_white  = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_header = workbook.add_format({'bg_color': '#C0C0C0', 'bold': True, 'border': 1, 'align': 'center'})
         fmt_ubat_y = workbook.add_format({'bg_color': '#FFFF00', 'border': 1, 'align': 'left'})
@@ -212,6 +212,7 @@ elif menu == "📊 SUMMARY":
             st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Tiada data untuk {b_sel}")
+
 
 
 
