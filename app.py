@@ -6,26 +6,22 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.8 FINAL", layout="wide")
 
-# Inisialisasi session state untuk input supaya boleh di-reset
+# Inisialisasi Session State
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
-if 'pilihan_batch' not in st.session_state:
-    st.session_state.pilihan_batch = "Mac - Batch 1"
-if 'proses_simpan' not in st.session_state:
-    st.session_state.proses_simpan = False
-
-# State untuk menyimpan nilai input (Nama & IC)
 if 'input_nama' not in st.session_state:
     st.session_state.input_nama = ""
 if 'input_ic' not in st.session_state:
     st.session_state.input_ic = ""
+if 'pilihan_batch' not in st.session_state:
+    st.session_state.pilihan_batch = "Mac - Batch 1"
 
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST UBAT (LIST LENGKAP FAZLI) ---
+# --- 2. MASTER LIST UBAT LENGKAP ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
@@ -189,7 +185,7 @@ MASTER_UBAT = sorted([
     "Sodium Bicarbonate Powder BP/USP", "Sodium Bicarbonate Oral Powder", "Sodium Bicarbonate 5% Ear Drops (10ml)", 
     "Sodium Bicarbonate 5% Bulk Solution for Ear Drop", "Sodium Bicarbonate, Citric Acid, Sodium Citrate, Tartaric Acid Sachet", 
     "Sodium Chloride 0.9% 500mL IV soln", "Sodium Chloride 0.9% 500mL Irrigation Soln", "Sodium Chloride 0.45% 500mL IV soln", 
-    "Sodium Chloride 0.9% Nasal Drops", "Sodium Chloride 0.9% Eye Drops", "Sodium Chloride 0.9% with Dextrose 5% 500mL IV soln", 
+    "Sodium Chloride 0.9 Nasal Drops", "Sodium Chloride 0.9% Eye Drops", "Sodium Chloride 0.9% with Dextrose 5% 500mL IV soln", 
     "Sodium Chloride 0.18% with Dextrose 4.23% 500mL IV soln", "Sodium Chloride BP (Powder)", "Sodium Lactate Compound 500mL IV soln", 
     "Sodium Valproate 200 mg Tablet", "Sodium Valproate 200 mg/5 ml Syrup (EPILIM)", "Sodium Valproate 200 mg/5 ml Syrup (HOVID)", 
     "Sodium Valproate 200 mg/5 ml Syrup (Standard)", "Sofosbuvir 400 mg Tablet", "Sofosbuvir 400mg Film-Coated Tablets", 
@@ -222,166 +218,93 @@ MASTER_UBAT = sorted([
 # --- 3. FUNGSI ---
 def load_data():
     try:
-        df = pd.read_csv(f"{URL_SHEET_CSV}&cache={datetime.now().timestamp()}")
+        df = pd.read_csv(f"{URL_SHEET_CSV}&cache={int(time.time())}")
         df.columns = df.columns.str.strip().str.upper()
         return df
     except: return pd.DataFrame()
 
-def format_tarikh(t_str):
-    if not t_str or t_str == "-" or str(t_str).strip() == "": return "-"
-    try:
-        dt = datetime.strptime(str(t_str), "%Y-%m-%d")
-        return dt.strftime("%d/%m/%Y")
-    except: return str(t_str)
+def format_t(val):
+    if not val or str(val).lower() in ["-", "nan", "none", ""]: return None
+    v = str(val).split('T')[0].strip().replace("/", "-")
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+        try: return datetime.strptime(v, fmt).date()
+        except: continue
+    return None
 
-def hitung_durasi(tca_u, tca_d):
-    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "TIADA DATA"
-    try:
-        d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
-        d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
-        return f"{(d2 - d1).days} HARI"
-    except: return "TIADA DATA"
-
-def convert_to_matrix_final(df_f):
+def bina_matrix(df_f):
     if df_f.empty: return pd.DataFrame()
-    matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
+    matrix_data = []
+    h_u, h_d, h_dur = {}, {}, {}
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
-        tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
-        info_u[p], info_d[p], info_dur[p] = format_tarikh(tu), format_tarikh(td), hitung_durasi(tu, td)
-        u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
-        for u, q in zip(u_list, q_list):
-            u_up, q_str = u.strip().upper(), q.strip()
-            matrix_data.append({'UBAT': u_up, 'PESAKIT': p, 'QTY': q_str})
-            try:
-                num = int(''.join(filter(str.isdigit, q_str)))
-                calc_data.append({'UBAT': u_up, 'VAL': num})
-            except: pass
+        # Tarikh
+        dt_u = format_t(row.get('TCA_UBAT'))
+        dt_d = format_t(row.get('TCA_CLINIC'))
+        h_u[p] = dt_u.strftime("%d/%m/%Y") if dt_u else "-"
+        h_d[p] = dt_d.strftime("%d/%m/%Y") if dt_d else "-"
+        h_dur[p] = f"{(dt_d - dt_u).days} HARI" if (dt_u and dt_d) else "TIADA DATA"
+        # Ubat
+        ubats = str(row['UBAT_LIST']).split(' | ')
+        qtys = str(row['KUANTITI']).split(' | ')
+        for u, q in zip(ubats, qtys):
+            matrix_data.append({'UBAT': u.strip().upper(), 'PESAKIT': p, 'QTY': q.strip()})
+    
     df_m = pd.DataFrame(matrix_data)
-    matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
-    if calc_data:
-        totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
-        matrix.insert(0, "📊 TOTAL", totals)
-    header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
-    header.insert(0, "📊 TOTAL", "")
-    return pd.concat([header, matrix], sort=False).fillna("")
-
-def to_excel_colored(df):
-    output = io.BytesIO()
-    try:
-        writer = pd.ExcelWriter(output, engine='xlsxwriter')
-        df.to_excel(writer, index=True, sheet_name='Summary')
-        workbook  = writer.book
-        worksheet = writer.sheets['Summary']
-        fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
-        fmt_ubat_b = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'left'})
-        fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
-        num_cols = len(df.columns) + 1 
-        for row_num in range(len(df) + 1):
-            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
-            else:
-                is_blue = row_num % 2 == 0
-                current_fmt = fmt_blue if is_blue else fmt_white
-                ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
-                worksheet.set_row(row_num, None, current_fmt)
-                worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
-        worksheet.set_column(0, 0, 45); worksheet.set_column(1, 1, 12); worksheet.set_column(2, num_cols, 18)
-        writer.close()
-    except: df.to_excel(output, index=True)
-    return output.getvalue()
+    if df_m.empty: return pd.DataFrame()
+    pivot = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
+    
+    # Tambah baris info ke atas
+    header_rows = pd.DataFrame([h_u, h_d, h_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
+    return pd.concat([header_rows, pivot])
 
 # --- 4. UI ---
-menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
+menu = st.sidebar.radio("MENU", ["📝 INPUT", "📊 SUMMARY"])
 SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # Gunakan session_state untuk Nama & IC
-        st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama).upper().strip()
-        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic).upper().strip()
-        
-        idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
-        batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
-        st.session_state.pilihan_batch = batch 
+        st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama).upper()
+        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic)
+        st.session_state.pilihan_batch = c3.selectbox("Batch:", SENARAI_BATCH, index=SENARAI_BATCH.index(st.session_state.pilihan_batch))
         
         c4, c5 = st.columns(2)
-        t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
-        t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
-        if t_d:
-            baki = (t_d - t_u).days
-            if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
+        t_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
+        t_d = c5.date_input("TCA Klinik Dr:", value=None)
 
-    with st.form("ubat_form", clear_on_submit=True):
+    with st.form("u_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
-        p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        p_q = u2.text_input("Qty:")
-        if st.form_submit_button("➕ Tambah Ke Bakul"):
+        p_u = u1.selectbox("Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        p_q = u2.text_input("Kuantiti:")
+        if st.form_submit_button("Tambah"):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q}); st.rerun()
 
     if st.session_state.bakul:
-        st.write("### 🛒 Bakul Sementara")
-        for i, item in enumerate(st.session_state.bakul):
-            col_a, col_b, col_c = st.columns([3, 1, 1])
-            col_a.write(f"**{item['u']}**"); col_b.write(f"{item['q']}")
-            if col_c.button("🗑️", key=f"del_{i}"):
-                st.session_state.bakul.pop(i); st.rerun()
+        for i, itm in enumerate(st.session_state.bakul):
+            st.text(f"{itm['u']} ({itm['q']})")
         
-        if st.session_state.proses_simpan:
-            st.button("⏳ SEDANG MENYIMPAN...", disabled=True, use_container_width=True)
-        else:
-            if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
-                if st.session_state.input_nama and st.session_state.input_ic:
-                    st.session_state.proses_simpan = True
-                    st.rerun()
-                else: st.error("Lengkapkan Nama dan IC!")
-
-    if st.session_state.proses_simpan:
-        payload = {
-            "Nama": st.session_state.input_nama, 
-            "IC": st.session_state.input_ic, 
-            "TCA_Ubat": str(t_u), 
-            "TCA_Clinic": str(t_d) if t_d else "-", 
-            "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
-            "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), 
-            "Batch": batch
-        }
-        try:
+        if st.button("💾 SIMPAN", type="primary"):
+            payload = {
+                "Nama": st.session_state.input_nama, "IC": st.session_state.input_ic,
+                "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-",
+                "Batch": st.session_state.pilihan_batch,
+                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
+                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
+            }
             requests.post(URL_API, json=payload)
-            st.success("Berjaya Disimpan!")
-            
-            # --- RESET SEMUA INPUT SELEPAS BERJAYA ---
+            # RESET SEMUA INPUT
             st.session_state.bakul = []
             st.session_state.input_nama = ""
             st.session_state.input_ic = ""
-            
-            time.sleep(1.5)
-        except: st.error("Gagal menyambung database!")
-        st.session_state.proses_simpan = False
-        st.rerun()
+            st.success("Berjaya!"); time.sleep(1); st.rerun()
 
 elif menu == "📊 SUMMARY":
-    st.header("Checklist & Durasi Bekalan")
+    st.header("Ringkasan Batch")
     df = load_data()
     if not df.empty:
-        idx_batch_s = SENARAI_BATCH.index(st.session_state.pilihan_batch)
-        b_sel = st.selectbox("Pilih Batch:", SENARAI_BATCH, index=idx_batch_s)
-        st.session_state.pilihan_batch = b_sel 
-        df_f = df[df['BATCH'] == b_sel]
+        b = st.selectbox("Batch:", SENARAI_BATCH, index=SENARAI_BATCH.index(st.session_state.pilihan_batch))
+        df_f = df[df['BATCH'] == b]
         if not df_f.empty:
-            with st.expander("🗑️ PADAM REKOD PESAKIT"):
-                pesakit_list = sorted(df_f['NAMA'].unique())
-                p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + pesakit_list)
-                if st.button("❗ PADAM"):
-                    if p_padam != "-- PILIH --":
-                        requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": b_sel})
-                        st.warning("Memadam..."); time.sleep(1); st.rerun()
-            res = convert_to_matrix_final(df_f)
-            st.dataframe(res.style.apply(lambda x: ['background-color: #DDEBF7' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=500)
-            excel_data = to_excel_colored(res)
-            st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else: st.info(f"Tiada data untuk {b_sel}")
+            st.dataframe(bina_matrix(df_f), use_container_width=True, height=600)
