@@ -5,22 +5,24 @@ from datetime import datetime, date
 import io
 import time
 
-# --- 1. SETTING ---
-st.set_page_config(page_title="SUPS HJEM V6.8", layout="wide")
+# --- 1. SETTING UTAMA ---
+st.set_page_config(page_title="SUPS HJEM V6.9", layout="wide")
 
-# Gunakan 'count' untuk paksa kotak input reset (IC & Nama)
-if 'count' not in st.session_state:
-    st.session_state.count = 0
+# Inisialisasi Session State (Wajib ada supaya bakul tak hilang)
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST --- (Sila masukkan list penuh anda nanti)
-MASTER_UBAT = sorted(["Atorvastatin 40 mg Tablet", "Ezetimibe 10 mg Tablet", "Amlodipine 5 mg Tablet", "Metformin HCl 500 mg Tablet"])
+# --- 2. MASTER LIST UBAT ---
+MASTER_UBAT = sorted([
+    "Abacavir 300mg Tablet", "Amlodipine 5 mg Tablet", "Atorvastatin 40 mg Tablet",
+    "Ezetimibe 10 mg Tablet", "Metformin HCl 500 mg Tablet", "Simvastatin 10 mg Tablet",
+    "Tiotropium 2.5mcg and Olodaterol 2.5mcg inhalation (Catridge only)"
+]) 
 
-# --- 3. FUNGSI ---
+# --- 3. FUNGSI TEKNIKAL ---
 def load_data():
     try:
         r = requests.get(f"{URL_SHEET_CSV}&cache={int(time.time())}")
@@ -29,99 +31,107 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-def hitung_durasi(tca_u, tca_d):
+def hitung_hari(t1, t2):
     try:
-        # Paksa tukar ke format tarikh tak kira apa pun format asal
-        d1 = pd.to_datetime(tca_u).date()
-        d2 = pd.to_datetime(tca_d).date()
-        diff = (d2 - d1).days
-        return f"{diff} HARI"
-    except:
-        return "N/A"
+        # Penukaran tarikh yang lebih "gentle" supaya durasi tak hilang
+        d1 = pd.to_datetime(t1).date()
+        d2 = pd.to_datetime(t2).date()
+        return f"{(d2 - d1).days} HARI"
+    except: return "-"
 
-# --- 4. NAVIGASI ---
-menu = st.sidebar.radio("MENU", ["📝 INPUT", "📊 SUMMARY"])
-BATCH_LIST = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
+# --- 4. UI INPUT ---
+menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
+SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     
-    # Guna 'key' yang berubah (count) untuk paksa reset Nama & IC
+    # Bahagian Maklumat Pesakit
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        nama = c1.text_input("Nama:", key=f"nama_{st.session_state.count}").upper()
-        ic = c2.text_input("IC:", key=f"ic_{st.session_state.count}")
-        batch = c3.selectbox("Batch:", BATCH_LIST)
+        # Gunakan value dari session_state untuk Nama & IC supaya boleh di-reset
+        nama_in = c1.text_input("Nama:", key="in_nama").upper()
+        ic_in = c2.text_input("IC:", key="in_ic")
+        batch_in = c3.selectbox("Batch:", SENARAI_BATCH)
         
         c4, c5 = st.columns(2)
-        t_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
-        t_d = c5.date_input("TCA Klinik Dr:", value=None)
+        t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
+        t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
 
-    with st.form("form_ubat", clear_on_submit=True):
+    # Bahagian Tambah Ubat (Guna balik gaya V5.8)
+    with st.container(border=True):
         u1, u2 = st.columns([3, 1])
-        sel_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-        sel_q = u2.text_input("Kuantiti:")
-        if st.form_submit_button("Tambah"):
-            if sel_u != "-- PILIH --" and sel_q:
-                st.session_state.bakul.append({"u": sel_u, "q": sel_q})
+        p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        p_q = u2.text_input("Qty:")
+        if st.button("➕ Tambah Ke Bakul"):
+            if p_u != "-- PILIH --" and p_q:
+                st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
 
+    # Paparan Bakul Sementara (Ada butang DELETE/Tong Sampah)
     if st.session_state.bakul:
-        for itm in st.session_state.bakul:
-            st.write(f"✅ {itm['u']} ({itm['q']})")
+        st.write("### 🛒 Bakul Sementara")
+        for i, itm in enumerate(st.session_state.bakul):
+            col_u, col_q, col_del = st.columns([3, 1, 0.5])
+            col_u.write(itm['u'])
+            col_q.write(itm['q'])
+            if col_del.button("🗑️", key=f"del_{i}"):
+                st.session_state.bakul.pop(i)
+                st.rerun()
         
-        if st.button("💾 SIMPAN SEMUA", type="primary"):
+        # Butang Simpan
+        if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
             payload = {
-                "Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), 
-                "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
+                "Nama": nama_in, "IC": ic_in, "TCA_Ubat": str(t_u), 
+                "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch_in,
                 "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
                 "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
             }
-            requests.post(URL_API, json=payload)
-            
-            # PROSES RESET
-            st.session_state.bakul = []
-            st.session_state.count += 1  # Tukar key supaya kotak Nama/IC kosong
-            st.success("Berjaya Disimpan!")
-            time.sleep(1)
-            st.rerun()
+            res = requests.post(URL_API, json=payload)
+            if res.status_code == 200:
+                st.session_state.bakul = [] # Kosongkan bakul
+                st.success("Berjaya Disimpan!")
+                time.sleep(1)
+                st.rerun() # Ini akan reset text_input secara automatik
 
+# --- 5. UI SUMMARY ---
 elif menu == "📊 SUMMARY":
-    st.header("Checklist & Durasi")
+    st.header("Checklist & Durasi Bekalan")
     df = load_data()
     if not df.empty:
-        pilih_b = st.selectbox("Pilih Batch:", BATCH_LIST)
-        df_f = df[df['BATCH'] == pilih_b]
+        b_pilih = st.selectbox("Pilih Batch:", SENARAI_BATCH)
+        df_f = df[df['BATCH'] == b_pilih]
         
         if not df_f.empty:
+            # Bina jadual Summary
             names = df_f['NAMA'].unique()
-            final_data = []
+            summary_list = []
             
-            # Bina baris tarikh & durasi
-            row_u = {"ITEM": "📅 TCA AMBIL"}
-            row_d = {"ITEM": "👨‍⚕️ TCA DR"}
-            row_dur = {"ITEM": "⏳ DURASI"}
+            # Row Tarikh & Durasi
+            r_u = {"ITEM": "📅 TCA AMBIL"}
+            r_d = {"ITEM": "👨‍⚕️ TCA DR"}
+            r_dur = {"ITEM": "⏳ DURASI"}
             
             for n in names:
-                d_p = df_f[df_f['NAMA'] == n].iloc[0]
-                row_u[n] = d_p['TCA_UBAT']
-                row_d[n] = d_p['TCA_CLINIC']
-                row_dur[n] = hitung_durasi(d_p['TCA_UBAT'], d_p['TCA_CLINIC'])
+                d = df_f[df_f['NAMA'] == n].iloc[0]
+                r_u[n] = d['TCA_UBAT']
+                r_d[n] = d['TCA_CLINIC']
+                r_dur[n] = hitung_hari(d['TCA_UBAT'], d['TCA_CLINIC'])
             
-            final_data.extend([row_u, row_d, row_dur])
+            summary_list.extend([r_u, r_d, r_dur])
             
-            # Bina baris ubat
+            # Row Ubat
             all_u = []
-            for _, r in df_f.iterrows():
-                all_u.extend(str(r['UBAT_LIST']).split(' | '))
+            for _, row in df_f.iterrows():
+                all_u.extend(str(row['UBAT_LIST']).split(' | '))
             
             for ub in sorted(list(set(all_u))):
-                row_ubat = {"ITEM": ub}
+                r_u = {"ITEM": ub}
                 for n in names:
-                    d_p = df_f[df_f['NAMA'] == n].iloc[0]
-                    u_l = str(d_p['UBAT_LIST']).split(' | ')
-                    q_l = str(d_p['KUANTITI']).split(' | ')
-                    row_ubat[n] = q_l[u_l.index(ub)] if ub in u_l else ""
-                final_data.append(row_ubat)
+                    d = df_f[df_f['NAMA'] == n].iloc[0]
+                    ul = str(d['UBAT_LIST']).split(' | ')
+                    ql = str(d['KUANTITI']).split(' | ')
+                    r_u[n] = ql[ul.index(ub)] if ub in ul else ""
+                summary_list.append(r_u)
                 
-            st.dataframe(pd.DataFrame(final_data).set_index("ITEM"), use_container_width=True)
+            st.dataframe(pd.DataFrame(summary_list).set_index("ITEM"), use_container_width=True)
