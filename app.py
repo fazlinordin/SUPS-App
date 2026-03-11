@@ -6,8 +6,9 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.7", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.8", layout="wide")
 
+# Inisialisasi session state untuk input supaya boleh di-reset
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'pilihan_batch' not in st.session_state:
@@ -15,10 +16,16 @@ if 'pilihan_batch' not in st.session_state:
 if 'proses_simpan' not in st.session_state:
     st.session_state.proses_simpan = False
 
+# State untuk menyimpan nilai input (Nama & IC)
+if 'input_nama' not in st.session_state:
+    st.session_state.input_nama = ""
+if 'input_ic' not in st.session_state:
+    st.session_state.input_ic = ""
+
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST UBAT BARU (FAZLI LIST) ---
+# --- 2. MASTER LIST UBAT (LIST LENGKAP FAZLI) ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
@@ -293,11 +300,14 @@ if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        nama = c1.text_input("Nama:").upper().strip()
-        ic = c2.text_input("IC:").upper().strip()
+        # Gunakan session_state untuk Nama & IC
+        st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama).upper().strip()
+        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic).upper().strip()
+        
         idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
         st.session_state.pilihan_batch = batch 
+        
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
@@ -325,18 +335,31 @@ if menu == "📝 INPUT":
             st.button("⏳ SEDANG MENYIMPAN...", disabled=True, use_container_width=True)
         else:
             if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
-                if nama and ic:
+                if st.session_state.input_nama and st.session_state.input_ic:
                     st.session_state.proses_simpan = True
                     st.rerun()
                 else: st.error("Lengkapkan Nama dan IC!")
 
     if st.session_state.proses_simpan:
-        payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), "Batch": batch}
+        payload = {
+            "Nama": st.session_state.input_nama, 
+            "IC": st.session_state.input_ic, 
+            "TCA_Ubat": str(t_u), 
+            "TCA_Clinic": str(t_d) if t_d else "-", 
+            "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
+            "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), 
+            "Batch": batch
+        }
         try:
             requests.post(URL_API, json=payload)
             st.success("Berjaya Disimpan!")
+            
+            # --- RESET SEMUA INPUT SELEPAS BERJAYA ---
             st.session_state.bakul = []
-            time.sleep(1)
+            st.session_state.input_nama = ""
+            st.session_state.input_ic = ""
+            
+            time.sleep(1.5)
         except: st.error("Gagal menyambung database!")
         st.session_state.proses_simpan = False
         st.rerun()
