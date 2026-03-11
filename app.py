@@ -6,17 +6,13 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V5.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.9", layout="wide")
 
-# Inisialisasi session state untuk input supaya boleh di-reset
+# Inisialisasi session state
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'pilihan_batch' not in st.session_state:
     st.session_state.pilihan_batch = "Mac - Batch 1"
-if 'proses_simpan' not in st.session_state:
-    st.session_state.proses_simpan = False
-
-# State untuk menyimpan nilai input (Nama & IC)
 if 'input_nama' not in st.session_state:
     st.session_state.input_nama = ""
 if 'input_ic' not in st.session_state:
@@ -25,7 +21,7 @@ if 'input_ic' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST UBAT (LIST LENGKAP FAZLI) ---
+# --- 2. MASTER LIST UBAT LENGKAP ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
@@ -228,14 +224,14 @@ def load_data():
     except: return pd.DataFrame()
 
 def format_tarikh(t_str):
-    if not t_str or t_str == "-" or str(t_str).strip() == "": return "-"
+    if not t_str or t_str == "-" or str(t_str).strip() == "" or str(t_str) == "None": return "-"
     try:
         dt = datetime.strptime(str(t_str), "%Y-%m-%d")
         return dt.strftime("%d/%m/%Y")
     except: return str(t_str)
 
 def hitung_durasi(tca_u, tca_d):
-    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-": return "TIADA DATA"
+    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-" or tca_d == "None": return "TIADA DATA"
     try:
         d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
         d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
@@ -273,8 +269,8 @@ def to_excel_colored(df):
         df.to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center'})
+        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center'})
         fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
         fmt_ubat_b = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'left'})
         fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
@@ -287,7 +283,7 @@ def to_excel_colored(df):
                 ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
                 worksheet.set_row(row_num, None, current_fmt)
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
-        worksheet.set_column(0, 0, 45); worksheet.set_column(1, 1, 12); worksheet.set_column(2, num_cols, 18)
+        worksheet.set_column(0, 0, 45); worksheet.set_column(1, num_cols, 18)
         writer.close()
     except: df.to_excel(output, index=True)
     return output.getvalue()
@@ -300,9 +296,9 @@ if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # Gunakan session_state untuk Nama & IC
-        st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama).upper().strip()
-        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic).upper().strip()
+        # Gunakan key unik supaya session_state berfungsi dengan tepat
+        st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama, key="nama_in").upper().strip()
+        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic, key="ic_in").upper().strip()
         
         idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
@@ -313,7 +309,7 @@ if menu == "📝 INPUT":
         t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
         if t_d:
             baki = (t_d - t_u).days
-            if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
+            if baki > 0: st.success(f"🎯 **Bekalan untuk: {baki} Hari**")
 
     with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
@@ -331,38 +327,31 @@ if menu == "📝 INPUT":
             if col_c.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
         
-        if st.session_state.proses_simpan:
-            st.button("⏳ SEDANG MENYIMPAN...", disabled=True, use_container_width=True)
-        else:
-            if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
-                if st.session_state.input_nama and st.session_state.input_ic:
-                    st.session_state.proses_simpan = True
-                    st.rerun()
-                else: st.error("Lengkapkan Nama dan IC!")
-
-    if st.session_state.proses_simpan:
-        payload = {
-            "Nama": st.session_state.input_nama, 
-            "IC": st.session_state.input_ic, 
-            "TCA_Ubat": str(t_u), 
-            "TCA_Clinic": str(t_d) if t_d else "-", 
-            "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
-            "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), 
-            "Batch": batch
-        }
-        try:
-            requests.post(URL_API, json=payload)
-            st.success("Berjaya Disimpan!")
-            
-            # --- RESET SEMUA INPUT SELEPAS BERJAYA ---
-            st.session_state.bakul = []
-            st.session_state.input_nama = ""
-            st.session_state.input_ic = ""
-            
-            time.sleep(1.5)
-        except: st.error("Gagal menyambung database!")
-        st.session_state.proses_simpan = False
-        st.rerun()
+        if st.button("💾 SIMPAN DATA", type="primary", use_container_width=True):
+            if st.session_state.input_nama and st.session_state.input_ic:
+                payload = {
+                    "Nama": st.session_state.input_nama, 
+                    "IC": st.session_state.input_ic, 
+                    "TCA_Ubat": str(t_u), 
+                    "TCA_Clinic": str(t_d) if t_d else "-", 
+                    "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
+                    "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul]), 
+                    "Batch": batch
+                }
+                try:
+                    with st.spinner("Sedang Menyimpan..."):
+                        requests.post(URL_API, json=payload)
+                    st.success("Berjaya Disimpan!")
+                    
+                    # --- RESET SEMUA SEKALI GUS DI SINI ---
+                    st.session_state.input_nama = ""
+                    st.session_state.input_ic = ""
+                    st.session_state.bakul = []
+                    
+                    time.sleep(1)
+                    st.rerun() # Paksa Streamlit untuk kosongkan kotak input
+                except: st.error("Gagal menyambung database!")
+            else: st.error("Lengkapkan Nama dan IC dahulu!")
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
@@ -373,15 +362,8 @@ elif menu == "📊 SUMMARY":
         st.session_state.pilihan_batch = b_sel 
         df_f = df[df['BATCH'] == b_sel]
         if not df_f.empty:
-            with st.expander("🗑️ PADAM REKOD PESAKIT"):
-                pesakit_list = sorted(df_f['NAMA'].unique())
-                p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + pesakit_list)
-                if st.button("❗ PADAM"):
-                    if p_padam != "-- PILIH --":
-                        requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": b_sel})
-                        st.warning("Memadam..."); time.sleep(1); st.rerun()
             res = convert_to_matrix_final(df_f)
-            st.dataframe(res.style.apply(lambda x: ['background-color: #DDEBF7' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=500)
+            st.dataframe(res, use_container_width=True, height=500)
             excel_data = to_excel_colored(res)
-            st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(label="📥 Download Excel", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else: st.info(f"Tiada data untuk {b_sel}")
