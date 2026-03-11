@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.1", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.2", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -21,7 +21,6 @@ URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
 # --- 2. MASTER LIST UBAT ---
-# (Kekalkan list ubat yang panjang ini)
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
@@ -224,17 +223,21 @@ def load_data():
     except: return pd.DataFrame()
 
 def format_tarikh(t_str):
-    if not t_str or t_str == "-" or str(t_str).strip() == "" or str(t_str) == "None": return "-"
+    if not t_str or t_str == "-" or str(t_str).strip() == "" or str(t_str).lower() == "none": return "-"
     try:
-        dt = datetime.strptime(str(t_str), "%Y-%m-%d")
+        # Cuba parse format YYYY-MM-DD
+        dt = datetime.strptime(str(t_str).split('T')[0], "%Y-%m-%d")
         return dt.strftime("%d/%m/%Y")
     except: return str(t_str)
 
 def hitung_durasi(tca_u, tca_d):
-    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-" or tca_d == "None": return "TIADA DATA"
+    if not tca_u or not tca_d or tca_u == "-" or tca_d == "-" or str(tca_d).lower() == "none": return "TIADA DATA"
     try:
-        d1 = tca_u if isinstance(tca_u, date) else datetime.strptime(str(tca_u), "%Y-%m-%d").date()
-        d2 = tca_d if isinstance(tca_d, date) else datetime.strptime(str(tca_d), "%Y-%m-%d").date()
+        # Bersihkan string tarikh
+        s1 = str(tca_u).split('T')[0].strip()
+        s2 = str(tca_d).split('T')[0].strip()
+        d1 = datetime.strptime(s1, "%Y-%m-%d").date()
+        d2 = datetime.strptime(s2, "%Y-%m-%d").date()
         return f"{(d2 - d1).days} HARI"
     except: return "TIADA DATA"
 
@@ -243,9 +246,16 @@ def convert_to_matrix_final(df_f):
     matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
-        tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
-        info_u[p], info_d[p], info_dur[p] = format_tarikh(tu), format_tarikh(td), hitung_durasi(tu, td)
-        u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
+        # Ambil data asal dari column CSV
+        tu = str(row.get('TCA_UBAT', '-'))
+        td = str(row.get('TCA_CLINIC', '-'))
+        
+        info_u[p] = format_tarikh(tu)
+        info_d[p] = format_tarikh(td)
+        info_dur[p] = hitung_durasi(tu, td)
+        
+        u_list = str(row['UBAT_LIST']).split(' | ')
+        q_list = str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
             u_up, q_str = u.strip().upper(), q.strip()
             matrix_data.append({'UBAT': u_up, 'PESAKIT': p, 'QTY': q_str})
@@ -253,11 +263,16 @@ def convert_to_matrix_final(df_f):
                 num = int(''.join(filter(str.isdigit, q_str)))
                 calc_data.append({'UBAT': u_up, 'VAL': num})
             except: pass
+    
+    if not matrix_data: return pd.DataFrame()
+    
     df_m = pd.DataFrame(matrix_data)
     matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
+    
     if calc_data:
         totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
         matrix.insert(0, "📊 TOTAL", totals)
+    
     header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
     header.insert(0, "📊 TOTAL", "")
     return pd.concat([header, matrix], sort=False).fillna("")
@@ -298,14 +313,11 @@ if menu == "📝 INPUT":
         c1, c2, c3 = st.columns(3)
         nama_input = c1.text_input("Nama:", value=st.session_state.input_nama, key="nama_raw").upper().strip()
         st.session_state.input_nama = nama_input
-        
         ic_input = c2.text_input("IC:", value=st.session_state.input_ic, key="ic_raw").strip()
         st.session_state.input_ic = ic_input
-        
         idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
         st.session_state.pilihan_batch = batch 
-        
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
@@ -358,7 +370,9 @@ elif menu == "📊 SUMMARY":
         df_f = df[df['BATCH'] == b_sel]
         if not df_f.empty:
             res = convert_to_matrix_final(df_f)
-            st.dataframe(res, use_container_width=True, height=500)
-            excel_data = to_excel_colored(res)
-            st.download_button(label="📥 Download Excel", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            if not res.empty:
+                st.dataframe(res, use_container_width=True, height=500)
+                excel_data = to_excel_colored(res)
+                st.download_button(label="📥 Download Excel", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            else: st.warning("Data tidak dapat diproses ke bentuk Matrix.")
         else: st.info(f"Tiada data untuk {b_sel}")
