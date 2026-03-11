@@ -14,7 +14,7 @@ URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3
 
 # --- 2. MASTER LIST UBAT (Semua List Anda) ---
 # (Saya ringkaskan di sini, sila gunakan list penuh dari kod sebelum ini)
-MASTER_UBAT = sorted (["Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
+MASTER_UBAT = sorted(["Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
     "Acetylsalicylic Acid 300 mg Soluble Tablet", "Acitretin 25mg Capsule", "Acriflavine 0.1% Lotion", 
     "Acyclovir 5% Cream", "Acyclovir 200 mg Tablet", "Acyclovir 800 mg Tablet", "Adadapalene 0.1% Gel", 
@@ -290,3 +290,4 @@ elif menu == "📊 SUMMARY":
             st.dataframe(hasil, use_container_width=True)
         else:
             st.warning("Tiada data untuk batch ini.")
+
