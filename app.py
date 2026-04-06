@@ -98,4 +98,210 @@ MASTER_UBAT = sorted([
     "Gemfibrozil 300 mg Capsule", "Glibenclamide 5 mg Tablet", "Gliclazide 30 mg MODIFIED RELEASE Tablet", 
     "Gliclazide 60 mg MODIFIED RELEASE Tablet", "Gliclazide 80 mg Tablet", "Glycerin (Liquid)", "Glycerine 25% in Aqueous Cream", 
     "Glycerin 25%, Sodium Chloride 15% Enema (Ravin)", "Glyceryl Trinitrate 0.5 mg Tablet", 
-    "Glycopyrronium 50mcg Inhalation Powder Hard Capsules", "Griseofulvin 125mg Tablet", "Haloperidol 1.5 mg Tablet",
+    "Glycopyrronium 50mcg Inhalation Powder Hard Capsules", "Griseofulvin 125mg Tablet", "Haloperidol 1.5 mg Tablet", 
+    "Haloperidol 5mg Tablet", "Hepatitis B 10mcg HbsAg Vaccine (Pediatric)", "Hepatitis B 20mcg HbsAg Vaccine (Adult)", 
+    "Hydrochlorothiazide 25 mg Tablet", "Hydrochlorothiazide 50 mg Tablet", "Hydrocortisone 1% Cream", "Hydrocortisone 10 mg Tablet", 
+    "Hydrocortisone Sodium Succinate 100mg Injection", "Hydrogen Peroxide 5 volume (1.5%) Mouthwash", "Hydrogen Peroxide 20 volume Solution (6%)", 
+    "Hydrogen Peroxide 130 Volume Liquid", "Hydroxychloroquine 200 mg Tablet (UNIQUIN)", "Hydroxychloroquine 200 mg Tablet (PLAQUENIL)", 
+    "Hydroxychloroquine Sulphate 200 mg Film Coated Tablet", "Hydroxyurea 500 mg Capsule", "Hyoscine N-Butylbromide 1 mg/ml Liquid", 
+    "Hyoscine N-Butylbromide 10 mg Tablet", "Hyoscine N-Butylbromide 20mg/ml Injection", "Hypromellose 0.3% Eye Drop (Preservative Free)", 
+    "Hypromellose 0.3% Eye Drops (with preservative)", "Ibuprofen 200 mg Tablet", "Imatinib Mesylate 400 mg Tablet", 
+    "Indacaterol maleate 150mcg Inhalation Capsule", "Indacaterol Maleate 110mcg & Glycopyrronium Bromide 50mcg Inhalation", 
+    "Indomethacin 25 mg Capsule", "Industrial Methylated Spirit (96%) BP - IMS", "Insulin aspart (Novorapid) 100 IU/ml FlexPen", 
+    "Insulin aspart 30%/aspart protamine 70%(NovoMix-30) 100 IU/ml FlexPen", "Insulin detemir (Levemir) 100 IU/ml FlexPen", 
+    "Insulin glargine (Basalog One) 100 IU/ml Prefilled Pen", "Insulin glargine (Lantus) 100 IU/ml Pre-filled Pen", 
+    "Insulin isophane (Insulatard) 100 IU/mL Penfill", "Insulin isophane (Insuman Basal) 100 IU/mL Penfill", 
+    "Insulin lispro 25% /lispro protamin 75%(Humalog Mix-25) 100 IU/mL Penfill", "Insulin lispro 50% /lispro protamin 50%(Humalog Mix-50) 100 IU/mL Penfill", 
+    "Insulin Recombinant Neutral Human Short-acting (Insugen-R) 100 IU/mL Penfill", 
+    "Insulin Recombinant Neutral Synthetic Human Short-acting (Diabulyn-R) 100 IU/mL Penfill", 
+    "Insulin Recombinant Synthetic Human, Intermediate-Acting (Insugen-N) 100 IU/mL Penfill", 
+    "Insulin Recombinant Synthetic Human, Intermediate-Acting (Diabulyn-N) 100 IU/mL Penfill", 
+    "Insulin Recombinant Synthetic Human, Premixed (Insugen-30/70) 100 IU/mL Penfill", 
+    "Insulin Recombinant Synthetic Human, Premixed (Diabulyn-30/70) 100 IU/mL Penfill", "Insulin regular (Actrapid) 100 IU/mL Penfill", 
+    "Insulin regular/isophane (Humulin 30/70) 100 IU/mL Penfill", "Insulin regular/isophane (Insuman Comb) 100 IU/mL Penfill", 
+    "Insulin regular/isophane (Mixtard-30) 100 IU/mL Penfill", "Ipratropium Br 20 mcg Fenoterol 50 mcg/dose Inhalation", 
+    "Ipratropium Bromide 0.025% Nebulising Soln (UDV)", "Irbesartan 150 mg Tablet", "Irbesartan 300 mg Tablet", 
+    "Iron Dextran 50mg/ml Injection", "Isoniazid 100 mg Tablet", "Isosorbide Dinitrate 10 mg Tablet", "Isosorbide-5-Mononitrate 60 mg SR Tablet", 
+    "Itraconazole 100 mg Capsule", "Ivabradine 5 mg Tablet", "Ketoprofen 2.5% Gel", "Ketorolac Tromethamine 0.5% Eye drops", 
+    "Labetalol HCl 100 mg Tablet", "Labetalol HCl 200 mg Tablet", "Lactulose 3.35 g/5 ml Liquid", "Lamivudine 150 mg Tablet", 
+    "Lamotrigine 50 mg Tablet", "Lamotrigine 100 mg Tablet", "Latanoprost 0.005% Eye Drops", "Latanoprost 0.005% Eye Drops", "Leflunomide 10 mg Tablet", 
+    "Leflunomide 20 mg Tablet", "Letrozole 2.5 mg Tablet", "Levetiracetam 500 mg Tablet", "Levodopa 200 mg, Benserazide 50 mg Tablet", 
+    "Levodopa 100 mg, Carbidopa 25 mg + Entacapone 200 mg Tablet", "Levothyroxine Sodium 25 mcg Tablet", 
+    "Levothyroxine Sodium 50 mcg Tablet", "Levothyroxine Sodium 100 mcg Tablet", "Lidocaine 2.5%-Chlorhexidine 0.5%-Triamcinolone 0.1% Gel/Lotion", 
+    "Lignocaine 2% Jelly", "LIGNOcaine HCl (Lidocaine) 2% Injection (10ml)", "Liquid Paraffin", "Lithium Carbonate 300 mg Tablet", 
+    "Lopinavir 200 mg and Ritonavir 50 mg Tablet", "Loratadine 1 mg/ml Syrup", "Loratadine 10 mg Tablet", "Lorazepam 1 mg Tablet", 
+    "Losartan 50 mg Tablet (LOSAGEN)", "Losartan 50 mg Tablet", "Losartan 100 mg Tablet (LOSAGEN)", "Losartan 100 mg Tablet", 
+    "Magnesium Sulphate 50% Injection", "Magnesium Trisilicate Mixture", "Magnesium Trisilicate Tablet", "Measles, Mumps Rubella Vaccine Live", 
+    "Measles Rubella Virus Vaccine Live, Attenuated (10 Doses)", "Mecobalamin 500 mcg Tablet", 
+    "Meclozine HCl 25 mg and Pyridoxine 50 mg Tablet", "Medroxyprogesterone Acetate 5 mg Tablet", "Mefenamic Acid 250 mg Capsule", 
+    "Memantine HCI 10 mg Tablet", "Meningococcal ACYW 135 Vaccine (10 doses)", "Metformin HCl 500 mg Tablet", 
+    "Metformin HCl 500 mg EXTENDED RELEASE Tablet", "Metformin HCl 750mg EXTENDED RELEASE Tablet", 
+    "Metformin 500 mg and Glibenclamide 2.5 mg Tablet", "Metformin 500 mg and Glibenclamide 5 mg Tablet", "Methadone 5mg/ml Syrup", 
+    "Methotrexate 2.5 mg Tablet", "Methyldopa 250 mg Tablet", "Methylphenidate HCl 10 mg Tablet", "Methyl Salicylate 25% Ointment", 
+    "Metoclopramide HCl 10 mg Tablet", "Metoclopramide HCl 10mg/2ml Injection", "Metoprolol Tartrate 100 mg Tablet", 
+    "Metronidazole 200 mg Tablet", "Miconazole 2% Cream", "Midazolam 5 mg/ml Injection", "Mirabegron 50 mg PROLONGED RELEASE Tablet", 
+    "Mirtazapine 15 mg Orodispersible Tablet", "Mirtazapine 30 mg Orodispersible Tablet", "Mometasone Furoate 0.1% Cream", 
+    "Mometasone Furoate 50 mcg Aqueous Nasal Spray (Axcel)", "Mometasone Furoate 50 mcg Aqueous Nasal Spray", 
+    "Montelukast Sodium 10 mg Tablet", "Morphine HCl 10 mg/5 ml Solution", "Morphine Sulphate 10 mg/ml Injection", 
+    "Multivitamin Drops for Infant/Paediatric", "Multivitamin Syrup", "Mupirocin 2% Ointment", "Mycophenolate Mofetil 500 mg tablet (MYCOFIT)", 
+    "Naltrexone HCl 50 mg Tablet", "Neomycin 0.5% Cream", "Nepafenac 0.1% w/v Eye Suspension", "Nevirapine 200 mg Tablet", 
+    "Nicotine 10 mg/ 16 hour Transdermal Patch", "Nicotine 15 mg/ 16 hour Transdermal Patch", "Nicotine 2 mg Gum", "Nicotine 4 mg Gum", 
+    "Nifedipine 10 mg Tablet", "Nystatin 100,000 units/ml Suspension", "Nystatin 100,000 units/g Cream", "Olanzapine 5 mg Tablet", 
+    "Olanzapine 10 mg Tablet", "Olanzapine 10 mg DISINTEGRATING Tablet", "Olopatadine HCl 0.2% Opthalmic Solution", 
+    "Omeprazole 20 mg Capsule", "Oral Rehydration Salt", "Oseltamivir 75 mg Capsule", "Oxytocin 5U + Ergometrine 0.5mg/ml Inj", 
+    "Oxytocin 10 units/ml Injection", "Paliperidone 75 mg Prolonged Release Injection", "Paliperidone 150 mg Prolonged Release Injection", 
+    "Paliperidone 6 mg EXTENDED RELEASE Tablet", "Pantoprazole 40 mg Tablet", "Pantoprazole 40mg Injection", "Paracetamol 120 mg/5 ml Syrup", 
+    "Paracetamol 250 mg/5 ml Syrup", "Paracetamol 125 mg Suppository", "Paracetamol 250 mg Suppository", "Paracetamol 500 mg Tablet", 
+    "Perindopril 4 mg Tablet", "Perindopril 8 mg Tablet", "Perindopril 4 mg and Indapamide 1.25 mg Tablet", 
+    "Perindopril 10mg and Indapamide 2.5mg Film Coated tablet", "Permethrin 1% w/v Lotion", "Permethrin 5% w/v Lotion", 
+    "Pethidine HCl 50 mg/ml Injection", "Phenobarbitone 30 mg Tablet", "Phenoxymethyl Penicillin 125 mg Tablet", 
+    "Phen phenytoin Sodium 100 mg Capsule", "Pine Tar 1%, Coal Tar 1%, Salicylic Acid 2% Shampoo (Sebitar)", "Piracetam 1.2 g Tablet", 
+    "Potassium Chloride 600 mg SR Tablet", "Potassium Chloride 1g/10ml Injection", "Potassium Chloride 1gm/10ml Mixture", 
+    "Potassium Chloride powder", "Potassium Citrate 3g/10ml Mixture BPC", "Potassium Permanganate 0.1% Solution", 
+    "Potassium Permanganate 1 in 1000 Solution", "Potassium Permanganate Crystal", "Povidone Iodine 10% Solution", "Prazosin HCl 1 mg Tablet", 
+    "Prazosin HCl 2 mg Tablet", "Prazosin HCl 5 mg Tablet", "Pre/Post-Natal (Zincofer) Vitamin and Mineral Capsule", "Prednisolone 1 mg Tablet", 
+    "Prednisolone 5 mg Tablet", "Pregabalin 75 mg Capsule", "Pregabalin 150 mg Capsules", "Probenecid 500 mg Tablet", 
+    "Prochlorperazine Maleate 5mg Tablet", "Prochlorperazine Mesylate 12.5 mg/ml Injection", "Prolase Tablet", 
+    "Promethazine HCl 5 mg/5 ml Syrup", "Propiverine HCl 15 mg Tablet", "Propranolol HCl 40 mg Tablet", "Propylthiouracil 50 mg Tablet", 
+    "Pyrazinamide 500 mg Tablet", "Pyridoxine HCl 10 mg Tablet", "Quetiapine Fumarate 50 mg EXTENDED RELEASE Tablet", 
+    "Quetiapine Fumarate 100mg IR Tablet", "Quetiapine Fumarate 200mg IR Tablet", "Quetiapine Fumarate 200 mg EXTENDED RELEASE Tablet", 
+    "Quetiapine Fumarate 300 mg EXTENDED RELEASE Tablet", "Quetiapine Fumarate 400 mg EXTENDED RELEASE Tablet", 
+    "Ravidasvir Hydrochloride 200mg Tablet", "Rifampicin 150 mg Capsule", "Rifampicin 300 mg Capsule", 
+    "Rifampicin 150mg + Isoniazid 75mg Tablet (Akurit-2)", "Rifampicin/Isoniazid/Pyrazinamide/Ethambutol (Akurit-4) Tab", "Risperidone 1 mg Tablet", 
+    "Risperidone 2 mg Tablet", "Rosuvastatin 20 mg Tablet", "Sacubitril 49mg, Valsartan 51mg Tablet", "Salbutamol 2 mg Tablet", 
+    "Salbutamol 2 mg/5 ml Syrup", "Salbutamol 100 mcg/dose Inhaler (200 doses)", "Salbutamol 0.5 % Nebulising Solution", 
+    "Salicylazosulphapyridine (Sulfasalazine) 500 mg Tablet", "Salicylic Acid 2% Ointment", "Salicylic Acid 5% Ointment", 
+    "Salicylic Acid 10% Ointment", "Salicylic Acid 20% Ointment", "Salicylic acid, Sulphur and Liquid Coal Tar Ointment", 
+    "Salmeterol 25mcg, Fluticasone Propionate 125mcg Evohaler", "Salmeterol 50mcg, Fluticasone Propionate 250mcg Accuhaler", 
+    "Salmeterol 50mcg, Fluticasone Propionate 500mcg Accuhaler", "Saxagliptin 5 mg Tablet", "Selegiline HCl 5 mg Tablet", 
+    "Sertraline HCI 50 mg Tablet", "Silver Sulfadiazine 1% Cream", "Simvastatin 10 mg Tablet", "Simvastatin 40 mg Tablet", 
+    "Sodium Bicarbonate Powder BP/USP", "Sodium Bicarbonate Oral Powder", "Sodium Bicarbonate 5% Ear Drops (10ml)", 
+    "Sodium Bicarbonate 5% Bulk Solution for Ear Drop", "Sodium Bicarbonate, Citric Acid, Sodium Citrate, Tartaric Acid Sachet", 
+    "Sodium Chloride 0.9% 500mL IV soln", "Sodium Chloride 0.9% 500mL Irrigation Soln", "Sodium Chloride 0.45% 500mL IV soln", 
+    "Sodium Chloride 0.9% Nasal Drops", "Sodium Chloride 0.9% Eye Drops", "Sodium Chloride 0.9% with Dextrose 5% 500mL IV soln", 
+    "Sodium Chloride 0.18% with Dextrose 4.23% 500mL IV soln", "Sodium Chloride BP (Powder)", "Sodium Lactate Compound 500mL IV soln", 
+    "Sodium Valproate 200 mg Tablet", "Sodium Valproate 200 mg/5 ml Syrup (EPILIM)", "Sodium Valproate 200 mg/5 ml Syrup (HOVID)", 
+    "Sodium Valproate 200 mg/5 ml Syrup (Standard)", "Sofosbuvir 400 mg Tablet", "Sofosbuvir 400mg Film-Coated Tablets", 
+    "Solifenacin Succinate 5mg Tablet/Capsule", "Spironolactone 25 mg Tablet", "Sterile Water for Injection 10mL", 
+    "Sulphamethoxazole 200 mg & Trimethoprim 40 mg/5ml Susp", "Sulphamethoxazole 400 mg + Trimethoprim 80 mg Tablet", 
+    "Sumatriptan 50 mg Tablet", "Sunscreen SPF 50+ Lotion/ Cream", "Syrup BP / Simple Syrup", "Tamoxifen Citrate 20 mg Tablet", 
+    "Tamsulosin HCl 400 mcg EXTENDED RELEASE Tablet", "Telmisartan 40 mg Tablet", "Telmisartan 80 mg Tablet", 
+    "Telmisartan 80mg + Amlodipine 5mg Tab", "Telmisartan 80mg + Amlodipine 10mg Tab", "Tenofovir Disoproxil Fumarate 300 mg Tablet", 
+    "Tenofovir Disoproxil Fumarate 300mg, Emtricitabine 200mg Tab", "Terazosin HCl 2 mg Tablet", "Terazosin HCl 5 mg Tablet", 
+    "Terbutaline Sulphate 2.5 mg Tablet", "Terbutaline Sulphate 10 mg/ml Nebulising Solution", "Tetanus Toxoid Injection (10 doses)", 
+    "Thalidomide 50 mg Capsule", "Theophylline 125 mg Tablet", "Theophylline 250 mg Long Acting Tablet", "Thiamine Mononitrate 10 mg Tablet", 
+    "Tibolone 2.5 mg Tablet", "Ticagrelor 90 mg Tablet", "Ticlopidine HCl 250 mg Tablet", "Timolol Maleate 0.5% Eye Drops", 
+    "Timolol Maleate 0.5% Eye Drops, Preservative Free (10 ml)", "Tiotropium 2.5mcg/puff inhalation (Catridge + Inhaler)", 
+    "Tiotropium 2.5mcg/puff inhalation (Catridge only)", "Tiotropium 2.5mcg and Olodaterol 2.5mcg inhalation (Catridge only)", 
+    "Tiotropium 2.5mcg and Olodaterol 2.5mcg inhalation (Inhaler set)", "Tolterodine Tartrate ER 4 mg Capsule", "Topiramate 100 mg Tablet", 
+    "Tramadol HCl 50 mg Capsule/Tablet", "Tranexamic Acid 250 mg Capsule", "Travoprost 0.004% +Timolol 0.5% Eye Drops", "Tretinoin 0.05% Cream", 
+    "Triamcinolone Acetonide 0.1% Oral Paste", "Trimetazidine 20 mg Tablet", "Triprolidine 1.25mg and Pseudoephedrine 30mg/5ml Syrup", 
+    "Triprolidine HCl 2.5 mg and Pseudoephedrine HCl 60 mg Tablet", "Tropicamide 1% Eye Drops", "Tuberculin PPD 2 TU/0.1ml Dose Inj", 
+    "Typhoid Vaccine (20 doses)", "Ursodeoxycholic Acid 250 mg Capsule", "Valproic Acid/Sodium Valproate (ER) 500mg Tablet", 
+    "Valsartan 80 mg Tablet", "Valsartan 160 mg Tablet", "Varenicline Tartrate 0.5mg and 1mg Tablet (STARTER PACK)", 
+    "Varenicline Tartrate 1 mg Tablet", "Venlafaxine HCl 75 mg EXTENDED RELEASE Capsule", "Venlafaxine HCl 150 mg EXTENDED RELEASE Capsule", 
+    "Verapamil 40 mg Tablet", "Vildagliptin 50 mg Tablet", "Vildagliptin 50 mg and Metformin HCl 1000 mg Tablet", 
+    "Vitamin B1, B6, B12 Tablet", "Vitamin B Complex Tablet", "Vitamin K1 (Phytomenadione) 1 mg / ml Injection", 
+    "Vortioxetine 10 mg Tablet", "Warfarin Sodium 1 mg Tablet", "Warfarin Sodium 2 mg Tablet", "Warfarin Sodium 5 mg Tablet", 
+    "White Petroleum Anhydrous Eye Ointment", "White Soft Paraffin BP (White Petroleum Jelly BP)", 
+    "Zidovudine 300 mg + Lamivudine 150 mg Tablet", "Zinc Oxide Cream (15%)", "Zinc Oxide Cream BP (32% w/w)", "Zolpidem Tartrate 10 mg Tablet", 
+    "Zuclopenthixol 20 mg/ml Drops", "Zuclopenthixol Decanoate 200mg/ml Injection"
+])
+
+# --- 3. FUNGSI ---
+def load_data():
+    try:
+        r = requests.get(f"{URL_SHEET_CSV}&t={int(time.time())}")
+        df = pd.read_csv(io.StringIO(r.text))
+        df.columns = df.columns.str.strip().str.upper()
+        return df
+    except: return pd.DataFrame()
+
+# --- 4. UI INPUT ---
+menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
+BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
+
+if menu == "📝 INPUT":
+    st.header("Pendaftaran Pesakit")
+    with st.form("input_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        nama = c1.text_input("Nama:").upper()
+        ic = c2.text_input("IC:")
+        batch = c3.selectbox("Batch:", BATCH_OPTIONS)
+        c4, c5 = st.columns(2)
+        t_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
+        t_d = c5.date_input("TCA Klinik (Dr):", value=date.today())
+        submit_data = st.form_submit_button("💾 SIMPAN DATA & RESET")
+
+    st.divider()
+    with st.container(border=True):
+        u1, u2 = st.columns([3, 1])
+        p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+        p_q = u2.text_input("Qty:")
+        if st.button("➕ Tambah"):
+            if p_u != "-- PILIH --" and p_q:
+                st.session_state.bakul.append({"u": p_u, "q": p_q})
+                st.rerun()
+
+    if st.session_state.bakul:
+        for i, itm in enumerate(st.session_state.bakul):
+            col_u, col_q, col_del = st.columns([3, 1, 0.5])
+            col_u.write(f"✅ {itm['u']}")
+            col_q.write(itm['q'])
+            if col_del.button("🗑️", key=f"del_{i}"):
+                st.session_state.bakul.pop(i); st.rerun()
+
+    if submit_data:
+        if nama and ic and st.session_state.bakul:
+            payload = {"Nama": nama, "IC": ic, "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Batch": batch, "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])}
+            requests.post(URL_API, json=payload)
+            st.session_state.bakul = []
+            st.success("Berjaya Disimpan!")
+            time.sleep(1); st.rerun()
+
+# --- 5. UI SUMMARY (NAMA + IC) ---
+elif menu == "📊 SUMMARY":
+    st.header("Checklist & Durasi")
+    df = load_data()
+    if not df.empty:
+        pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS)
+        df_f = df[df['BATCH'] == pilih_batch].copy()
+        
+        if not df_f.empty:
+            df_f['LABEL'] = df_f['NAMA'] + "\n(" + df_f['IC'].astype(str) + ")"
+            labels = df_f['LABEL'].unique()
+            matrix = {}
+            
+            rows_wajib = ["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"]
+            for row_name in rows_wajib:
+                matrix[row_name] = {}
+                for lab in labels:
+                    p_data = df_f[df_f['LABEL'] == lab].iloc[0]
+                    if row_name == "📅 TCA AMBIL": matrix[row_name][lab] = p_data['TCA_UBAT']
+                    elif row_name == "👨‍⚕️ TCA DR": matrix[row_name][lab] = p_data['TCA_CLINIC']
+                    elif row_name == "⏳ DURASI":
+                        try:
+                            d1 = pd.to_datetime(p_data['TCA_UBAT']).date()
+                            d2 = pd.to_datetime(p_data['TCA_CLINIC']).date()
+                            matrix[row_name][lab] = f"{(d2 - d1).days} HARI"
+                        except: matrix[row_name][lab] = "-"
+
+            all_ubats = []
+            for u_str in df_f['UBAT_LIST']: all_ubats.extend(str(u_str).split(' | '))
+            for ub in sorted(list(set(all_ubats))):
+                matrix[ub] = {}
+                for lab in labels:
+                    p_data = df_f[df_f['LABEL'] == lab].iloc[0]
+                    u_list = str(p_data['UBAT_LIST']).split(' | ')
+                    q_list = str(p_data['KUANTITI']).split(' | ')
+                    matrix[ub][lab] = q_list[u_list.index(ub)] if ub in u_list else ""
+
+            res_df = pd.DataFrame(matrix).T
+            st.dataframe(res_df, use_container_width=True)
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                res_df.to_excel(writer, sheet_name='Summary')
+            st.download_button(label="📥 Muat Turun Excel", data=output.getvalue(), file_name=f"Summary_{pilih_batch}.xlsx")
+        else:
+            st.info("Tiada pesakit dalam batch ini.")
