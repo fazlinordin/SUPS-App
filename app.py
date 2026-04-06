@@ -103,7 +103,7 @@ MASTER_UBAT = sorted([
     "Flupenthixol Decanoate Depot 20mg/ml lnjection", "Fluphenazine Decanoate 25mg/ml Inj", "Fluticasone Furoate 27.5 mcg/dose Nasal Spray (60 doses)", 
     "Fluticasone Furoate 27.5 mcg/dose Nasal Spray (120 doses)", "Fluticasone propionate 125 mcg/dose Evohaler (120doses)", 
     "Fluticasone Propionate 125 mcg/dose Inhalation (120doses)", "Fluvoxamine 50 mg Tablet", "Fluvoxamine 100 mg Tablet", 
-    "Folic Acid 5 mg Tablet", "Frusemide 10mg/ml Injection (20mg/2ml)", "Frusemide 40 mg Tablet", "Fusidic Acid 2% Cream", 
+    "Folic Acid 5 mg Tablet", "Frusemide 10mg/ml Injection (20mg/2ml)", "Frusemide 40 mg Tablet", "Fusidic Acid 2% Cream", "Fusidic Acid 2% Ointment", 
     "Fusidic Acid 1% Eye Drops", "Fusidic Acid 2% in Betamethasone Valerate 0.1% Cream", "Gabapentin 300 mg Capsule", 
     "Gabapentin 600 mg Tablet", "Gamma Benzene Hexachloride 0.1 % Lotion", "Gamma Benzene Hexachloride 1% Lotion", 
     "Gemfibrozil 300 mg Capsule", "Glibenclamide 5 mg Tablet", "Gliclazide 30 mg MODIFIED RELEASE Tablet", 
