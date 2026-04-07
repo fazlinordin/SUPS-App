@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.1", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.2", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -14,7 +14,7 @@ if 'bakul' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER UBAT ---
+# --- 2. MASTER UBAT (Lengkap) ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Acarbose 50 mg Tablet", "Acetazolamide 250 mg Tablet",
     "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acyclovir 200 mg Tablet",
@@ -40,7 +40,7 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-# --- 4. UI ---
+# --- 4. UI INPUT ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
@@ -61,7 +61,7 @@ if menu == "📝 INPUT":
     p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
     p_q = u2.text_input("Qty:")
     if st.button("➕ Tambah"):
-        if pilih_u != "-- PILIH --" and p_q:
+        if p_u != "-- PILIH --" and p_q:
             st.session_state.bakul.append({"ubat": p_u, "qty": p_q}); st.rerun()
 
     if st.session_state.bakul:
@@ -83,6 +83,7 @@ if menu == "📝 INPUT":
             if res.status_code == 200:
                 st.success("Berjaya!"); st.session_state.bakul = []; time.sleep(1); st.rerun()
 
+# --- 5. UI SUMMARY (WITH ZEBRA & TOTAL) ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
@@ -93,10 +94,10 @@ elif menu == "📊 SUMMARY":
             labels = df_f['NAMA'].unique()
             matrix = {}
             
-            # 1. Bina Rows Info (Header)
+            # Row Header
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
-            matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_CLINIC'].iloc[0] for l in labels}
+            matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_Clinic'].iloc[0] if 'TCA_CLINIC' in df_f.columns else "-" for l in labels}
             
             def get_dur(n):
                 try:
@@ -106,46 +107,46 @@ elif menu == "📊 SUMMARY":
                 except: return "-"
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
-            # 2. Bina Rows Ubat
-            u_list_batch = []
-            for u_s in df_f['UBAT_LIST']: u_list_batch.extend(str(u_s).split(' | '))
-            unique_ubats = sorted(list(set(u_list_batch)))
-            
-            for ub in unique_ubats:
+            # Row Ubat
+            u_batch = []
+            for u_s in df_f['UBAT_LIST']: u_batch.extend(str(u_s).split(' | '))
+            for ub in sorted(list(set(u_batch))):
                 matrix[ub] = {}
-                row_total = 0
+                rt = 0
                 for l in labels:
                     p = df_f[df_f['NAMA'] == l].iloc[0]
-                    u_names = str(p['UBAT_LIST']).split(' | ')
-                    u_qtys = str(p['KUANTITI']).split(' | ')
-                    if ub in u_names:
-                        val = u_qtys[u_names.index(ub)]
+                    un, uq = str(p['UBAT_LIST']).split(' | '), str(p['KUANTITI']).split(' | ')
+                    if ub in un:
+                        val = uq[un.index(ub)]
                         matrix[ub][l] = val
-                        try: row_total += int(''.join(filter(str.isdigit, str(val))))
+                        try: rt += int(''.join(filter(str.isdigit, str(val))))
                         except: pass
-                    else:
-                        matrix[ub][l] = ""
-                matrix[ub]["📊 TOTAL"] = row_total if row_total > 0 else ""
+                    else: matrix[ub][l] = ""
+                matrix[ub]["📊 TOTAL"] = rt if rt > 0 else ""
 
-            # 3. Tukar ke DataFrame & Susun Kolum
             res_df = pd.DataFrame(matrix).T
-            # Paksa kolum TOTAL berada di paling kiri (selepas index)
-            cols = ["📊 TOTAL"] + [l for l in labels]
+            cols = ["📊 TOTAL"] + list(labels)
             res_df = res_df[cols]
-            
-            # 4. Styling Zebra
-            def zebra_style(x):
-                df_style = pd.DataFrame('', index=x.index, columns=x.columns)
-                for i in range(len(x)):
-                    color = 'background-color: #DDEBF7' if i % 2 == 0 else ''
-                    df_style.iloc[i, :] = color
-                return df_style
 
-            st.dataframe(res_df.style.apply(zebra_style, axis=None), use_container_width=True)
-            
-            # 5. Download Excel
+            # Style Zebra
+            def zebra(x):
+                c = 'background-color: #DDEBF7'
+                df1 = pd.DataFrame('', index=x.index, columns=x.columns)
+                df1.iloc[::2, :] = c
+                return df1
+
+            st.dataframe(res_df.style.apply(zebra, axis=None), use_container_width=True)
+
+            # Excel Download
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 res_df.astype(str).to_excel(writer, sheet_name='Summary')
-                # (Warna & format IC auto-applied dalam logik astype string)
-            st.download_button(label="📥 MUAT TURUN EXCEL", data=output.getvalue(), file_name=f"Summary_{pilih_batch}.xlsx")
+                wb, ws = writer.book, writer.sheets['Summary']
+                f1 = wb.add_format({'bg_color': '#DDEBF7', 'border': 1, 'num_format': '@'})
+                f2 = wb.add_format({'bg_color': '#FFFFFF', 'border': 1, 'num_format': '@'})
+                for r in range(len(res_df) + 1):
+                    fmt = f1 if r % 2 == 0 and r > 0 else f2
+                    ws.set_row(r, None, fmt)
+                ws.set_column(0, 0, 40)
+                ws.set_column(1, len(res_df.columns), 15)
+            st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{pilih_batch}.xlsx")
