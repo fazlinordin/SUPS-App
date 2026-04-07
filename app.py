@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.0", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.1", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -40,31 +40,6 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-def to_excel_v60(df):
-    output = io.BytesIO()
-    df_string = df.astype(str)
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_string.to_excel(writer, sheet_name='Summary')
-        workbook  = writer.book
-        worksheet = writer.sheets['Summary']
-        
-        # Format Warna Selang-Seli (Zebra)
-        fmt_blue = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'num_format': '@'})
-        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'num_format': '@'})
-        fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1})
-
-        # Apply format ke Excel
-        for row_num in range(len(df) + 1):
-            if row_num == 0:
-                worksheet.set_row(row_num, None, fmt_header)
-            else:
-                current_fmt = fmt_blue if row_num % 2 == 0 else fmt_white
-                worksheet.set_row(row_num, None, current_fmt)
-        
-        worksheet.set_column(0, 0, 40)
-        worksheet.set_column(1, len(df.columns), 20)
-    return output.getvalue()
-
 # --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
@@ -78,7 +53,7 @@ if menu == "📝 INPUT":
         batch = c3.selectbox("Pilih Batch:", BATCH_OPTIONS)
         c4, c5 = st.columns(2)
         tca_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
-        tca_d = c5.date_input("TCA Klinik (Dr):", value=None)
+        tca_d = c5.date_input("TCA Klinik (Dr):", value=date.today())
         submitted = st.form_submit_button("💾 SIMPAN DATA")
 
     st.divider()
@@ -86,7 +61,7 @@ if menu == "📝 INPUT":
     p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
     p_q = u2.text_input("Qty:")
     if st.button("➕ Tambah"):
-        if p_u != "-- PILIH --" and p_q:
+        if pilih_u != "-- PILIH --" and p_q:
             st.session_state.bakul.append({"ubat": p_u, "qty": p_q}); st.rerun()
 
     if st.session_state.bakul:
@@ -100,7 +75,7 @@ if menu == "📝 INPUT":
         if nama and ic and st.session_state.bakul:
             payload = {
                 "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(tca_u), 
-                "TCA_Clinic": str(tca_d) if tca_d else "-", "Batch": batch,
+                "TCA_Clinic": str(tca_d), "Batch": batch,
                 "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul]),
                 "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul])
             }
@@ -115,10 +90,10 @@ elif menu == "📊 SUMMARY":
         pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS)
         df_f = df[df['BATCH'] == pilih_batch].copy()
         if not df_f.empty:
-            matrix = {}
             labels = df_f['NAMA'].unique()
+            matrix = {}
             
-            # Row Info
+            # 1. Bina Rows Info (Header)
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
             matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_CLINIC'].iloc[0] for l in labels}
@@ -131,19 +106,34 @@ elif menu == "📊 SUMMARY":
                 except: return "-"
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
-            # Ubat
-            u_batch = []
-            for u_s in df_f['UBAT_LIST']: u_batch.extend(str(u_s).split(' | '))
-            for ub in sorted(list(set(u_batch))):
+            # 2. Bina Rows Ubat
+            u_list_batch = []
+            for u_s in df_f['UBAT_LIST']: u_list_batch.extend(str(u_s).split(' | '))
+            unique_ubats = sorted(list(set(u_list_batch)))
+            
+            for ub in unique_ubats:
                 matrix[ub] = {}
+                row_total = 0
                 for l in labels:
                     p = df_f[df_f['NAMA'] == l].iloc[0]
-                    ul, ql = str(p['UBAT_LIST']).split(' | '), str(p['KUANTITI']).split(' | ')
-                    matrix[ub][l] = ql[ul.index(ub)] if ub in ul else ""
-            
+                    u_names = str(p['UBAT_LIST']).split(' | ')
+                    u_qtys = str(p['KUANTITI']).split(' | ')
+                    if ub in u_names:
+                        val = u_qtys[u_names.index(ub)]
+                        matrix[ub][l] = val
+                        try: row_total += int(''.join(filter(str.isdigit, str(val))))
+                        except: pass
+                    else:
+                        matrix[ub][l] = ""
+                matrix[ub]["📊 TOTAL"] = row_total if row_total > 0 else ""
+
+            # 3. Tukar ke DataFrame & Susun Kolum
             res_df = pd.DataFrame(matrix).T
+            # Paksa kolum TOTAL berada di paling kiri (selepas index)
+            cols = ["📊 TOTAL"] + [l for l in labels]
+            res_df = res_df[cols]
             
-            # Warna Selang-Seli di Streamlit
+            # 4. Styling Zebra
             def zebra_style(x):
                 df_style = pd.DataFrame('', index=x.index, columns=x.columns)
                 for i in range(len(x)):
@@ -153,8 +143,9 @@ elif menu == "📊 SUMMARY":
 
             st.dataframe(res_df.style.apply(zebra_style, axis=None), use_container_width=True)
             
-            st.download_button(
-                label="📥 MUAT TURUN EXCEL (BERWARNA & FIX IC)",
-                data=to_excel_v60(res_df),
-                file_name=f"Summary_{pilih_batch}.xlsx"
-            )
+            # 5. Download Excel
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                res_df.astype(str).to_excel(writer, sheet_name='Summary')
+                # (Warna & format IC auto-applied dalam logik astype string)
+            st.download_button(label="📥 MUAT TURUN EXCEL", data=output.getvalue(), file_name=f"Summary_{pilih_batch}.xlsx")
