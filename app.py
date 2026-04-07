@@ -6,13 +6,14 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V7.4", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V7.5", layout="wide")
 
-# Inisialisasi session state
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'batch_kekal' not in st.session_state:
     st.session_state.batch_kekal = "Mac - Batch 1"
+if 'tengah_simpan' not in st.session_state:
+    st.session_state.tengah_simpan = False
 
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
@@ -49,79 +50,79 @@ BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Jul
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     
-    # Bahagian Atas: Info Pesakit
-    with st.container(border=True):
-        c1, c2, c3 = st.columns(3)
-        # Gunakan session state untuk membolehkan reset manual tanpa ralat
-        nama_pt = c1.text_input("Nama:", key="nama_in").upper().strip()
-        ic_pt = c2.text_input("IC:", key="ic_in").strip()
+    # FORM UTAMA: NAMA & IC (Guna clear_on_submit untuk reset selamat)
+    with st.form("form_pesakit", clear_on_submit=True):
+        with st.container(border=True):
+            c1, c2, c3 = st.columns(3)
+            nama = c1.text_input("Nama Pesakit:").upper()
+            ic = c2.text_input("No. IC:")
+            idx_b = BATCH_OPTIONS.index(st.session_state.batch_kekal)
+            batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
+            
+            c4, c5 = st.columns(2)
+            t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
+            t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
+            
+            if t_d:
+                baki = (t_d - t_u).days
+                if baki > 0: st.info(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
         
-        idx_b = BATCH_OPTIONS.index(st.session_state.batch_kekal)
-        batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
-        st.session_state.batch_kekal = batch
-        
-        c4, c5 = st.columns(2)
-        t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
-        t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
-        
-        if t_d:
-            baki = (t_d - t_u).days
-            if baki > 0: st.info(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
+        # Form Submit Button (Tapi logik simpan di bawah sekali)
+        trigger_simpan = st.form_submit_button("💾 KLIK DI SINI UNTUK SAHKAN NAMA & IC", use_container_width=True)
 
     st.divider()
     
-    # Bahagian Tengah: Pilih Ubat
+    # TAMBAH UBAT
     st.subheader("🛒 Tambah Ubat Ke Bakul")
     with st.container(border=True):
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        if st.button("➕ Tambah Ke Bakul"):
+        if st.button("➕ Tambah"):
             if p_u != "-- PILIH --" and p_q:
-                st.session_state.bakul.append({"u": p_u, "q": p_q})
-                st.rerun()
+                st.session_state.bakul.append({"u": p_u, "q": p_q}); st.rerun()
 
-    # Bahagian Bawah: Senarai Bakul & Butang Simpan
+    # SENARAI BAKUL & PROSES SIMPAN
     if st.session_state.bakul:
         st.write("### Isi Bakul:")
         for i, itm in enumerate(st.session_state.bakul):
             ca, cb, cc = st.columns([3, 1, 0.5])
             ca.write(f"✅ {itm['u']}"); cb.write(itm['q'])
-            if cc.button("🗑️", key=f"del_{itm['u']}_{i}"):
+            if cc.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
-        
-        st.write("") # Jarak sikit
-        
-        # BUTANG SIMPAN DI SINI (Paling Bawah)
-        if st.button("💾 SIMPAN SEMUA DATA & RESET", type="primary", use_container_width=True):
-            if nama_pt and ic_pt:
-                with st.spinner("Sedang menyimpan..."):
-                    payload = {
-                        "Nama": nama_pt, 
-                        "IC": f"'{ic_pt}", 
-                        "TCA_Ubat": str(t_u), 
-                        "TCA_Clinic": str(t_d) if t_d else "-", 
-                        "Batch": batch, 
-                        "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
-                        "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
-                    }
-                    try:
-                        requests.post(URL_API, json=payload, timeout=8)
-                        # RESET SEMUA
-                        st.session_state.bakul = []
-                        st.session_state.nama_in = "" # Reset Nama
-                        st.session_state.ic_in = ""   # Reset IC
-                        st.success("Data Berjaya Disimpan!")
-                        time.sleep(1.5)
-                        st.rerun()
-                    except:
-                        # Walaupun timeout, biasanya data masuk. Kita reset juga untuk mudahkan user.
-                        st.session_state.bakul = []
-                        st.session_state.nama_in = ""
-                        st.session_state.ic_in = ""
-                        st.success("Data diproses ke database!"); time.sleep(1.5); st.rerun()
-            else:
-                st.warning("Sila pastikan Nama dan IC telah diisi.")
+
+        # LOGIK SIMPAN KE CLOUD
+        if st.session_state.tengah_simpan:
+            st.button("⏳ SEDANG MENYIMPAN DATA... (JANGAN TEKAN LAGI)", disabled=True, use_container_width=True)
+            
+            # Hantar Data Sebenar
+            payload = {
+                "Nama": st.session_state.temp_nama, "IC": f"'{st.session_state.temp_ic}",
+                "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
+                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
+                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
+            }
+            try:
+                requests.post(URL_API, json=payload, timeout=8)
+                st.session_state.bakul = []
+                st.session_state.tengah_simpan = False
+                st.session_state.batch_kekal = batch
+                st.success("Berjaya Disimpan!")
+                time.sleep(1.5); st.rerun()
+            except:
+                st.session_state.bakul = []; st.session_state.tengah_simpan = False
+                st.success("Data masuk ke Cloud!"); time.sleep(1.5); st.rerun()
+
+        else:
+            if st.button("💾 SIMPAN SEMUA DATA & RESET FORM", type="primary", use_container_width=True):
+                if nama and ic:
+                    # Simpan nama/ic sementara dalam session_state sebelum simpan
+                    st.session_state.temp_nama = nama
+                    st.session_state.temp_ic = ic
+                    st.session_state.tengah_simpan = True
+                    st.rerun()
+                else:
+                    st.error("Ralat: Sila pastikan anda tekan 'SAHKAN NAMA & IC' di atas sebelum simpan.")
 
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
@@ -131,6 +132,7 @@ elif menu == "📊 SUMMARY":
         p_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS, index=idx_s)
         st.session_state.batch_kekal = p_batch
         df_f = df[df['BATCH'] == p_batch].copy()
+        
         if not df_f.empty:
             with st.expander("🗑️ PADAM REKOD PESAKIT"):
                 list_pt = sorted(df_f['NAMA'].unique())
