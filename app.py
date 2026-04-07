@@ -30,7 +30,7 @@ MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
     "Acetylsalicylic Acid 300 mg Soluble Tablet", "Acitretin 25mg Capsule", "Acriflavine 0.1% Lotion", 
-    "Acyclovir 5% Cream", "Acyclovir 200 mg Tablet", "Acyclovir 800 mg Tablet", "Adadapalene 0.1% Gel", 
+    "Acyclovir 5% Cream", "Acyclovir 200 mg Tablet", "Acyclovir 800 mg Tablet", "Adapalene 0.1% Gel", 
     "Agomelatine 25mg Tablet", "Albendazole 200 mg Tablet", "Albendazole 200 mg/5 ml Suspension", "Alcohol 70% Solution", 
     "Alcohol 96% (For External Use Only)", "Alcohol 96% (For Internal Use Only)", "Alendronate Sodium 70 mg Tablet", 
     "Alendronate Sodium 70 mg and Cholecalciferol 5600 IU Tablet", "Alfuzosin HCl 10 mg Tablet", "Alkaline Nasal Douche", 
