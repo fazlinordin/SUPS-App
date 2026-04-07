@@ -6,9 +6,8 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V7.6", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V7.7", layout="wide")
 
-# Inisialisasi session state
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'batch_kekal' not in st.session_state:
@@ -19,7 +18,7 @@ if 'tengah_simpan' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER UBAT ---
+# --- 2. MASTER LIST UBAT ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Acarbose 50 mg Tablet", "Acetazolamide 250 mg Tablet",
     "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acyclovir 200 mg Tablet",
@@ -51,81 +50,85 @@ BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Jul
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     
-    # FORM UTAMA (Guna clear_on_submit untuk kosongkan Nama & IC)
-    with st.form("main_form", clear_on_submit=True):
+    # FORM UTAMA UNTUK NAMA & IC (Senang Reset)
+    with st.form("input_form", clear_on_submit=True):
         with st.container(border=True):
             c1, c2, c3 = st.columns(3)
-            nama = c1.text_input("Nama Pesakit:")
-            ic = c2.text_input("No. IC:")
+            nama_input = c1.text_input("Nama Pesakit:")
+            ic_input = c2.text_input("No. IC:")
             idx_b = BATCH_OPTIONS.index(st.session_state.batch_kekal)
-            batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
+            batch_input = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
             
             c4, c5 = st.columns(2)
             t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
-            t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=date.today())
+            t_d = c5.date_input("TCA Klinik (Dr):", value=date.today())
             
-            # --- COUNTDOWN KEMBALI DI SINI ---
             if t_d > t_u:
                 baki = (t_d - t_u).days
                 st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
-            elif t_d == t_u:
-                st.warning("⚠️ Tarikh klinik sama dengan tarikh ambil ubat.")
-        
+
         st.divider()
         st.subheader("🛒 Bakul Ubat")
         
-        # List Bakul dalam Form
+        # Papar bakul dalam form supaya butang simpan boleh berada di bawahnya
         if st.session_state.bakul:
             for i, itm in enumerate(st.session_state.bakul):
-                ca, cb = st.columns([4, 1])
-                ca.write(f"✅ {itm['u']}")
-                cb.write(itm['q'])
+                col_u, col_q = st.columns([4, 1])
+                col_u.write(f"✅ {itm['u']}")
+                col_q.write(f"{itm['q']}")
+            
+            st.write("") # Jarak
+            
+            # BUTANG SIMPAN DI SINI (DI BAWAH BAKUL)
+            if st.session_state.tengah_simpan:
+                st.form_submit_button("⏳ SEDANG MENYIMPAN...", disabled=True, use_container_width=True)
+            else:
+                simpan_data = st.form_submit_button("💾 SIMPAN SEMUA DATA & RESET FORM", type="primary", use_container_width=True)
         else:
-            st.info("Bakul kosong. Sila tambah ubat di bawah sebelum tekan Simpan.")
+            st.info("Bakul masih kosong. Sila tambah ubat di kotak bawah dahulu.")
+            simpan_data = False
 
-        # Tombol Simpan Akhir
-        if st.session_state.tengah_simpan:
-            st.form_submit_button("⏳ SEDANG MENYIMPAN...", disabled=True, use_container_width=True)
-        else:
-            submit_semua = st.form_submit_button("💾 SIMPAN SEMUA DATA & RESET FORM", type="primary", use_container_width=True)
-
-    # BAHAGIAN TAMBAH UBAT (Di luar Form Utama supaya tak reset setiap kali tambah ubat)
+    # KOTAK TAMBAH UBAT (Di luar form utama supaya tak reset form masa tambah ubat)
     with st.container(border=True):
-        st.write("Tambah item ubat:")
+        st.write("Tambah item ubat ke dalam bakul:")
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        if st.button("➕ Tambah Ke Bakul"):
+        c_btn1, c_btn2 = st.columns(2)
+        if c_btn1.button("➕ Tambah Ke Bakul", use_container_width=True):
             if p_u != "-- PILIH --" and p_q:
                 st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
-        if st.button("🗑️ Kosongkan Bakul"):
+        if c_btn2.button("🗑️ Kosongkan Bakul", use_container_width=True):
             st.session_state.bakul = []
             st.rerun()
 
-    # PROSES SIMPAN SEBENAR
-    if submit_semua:
-        if nama and ic and st.session_state.bakul:
+    # PROSES SIMPAN DATA
+    if simpan_data:
+        if nama_input and ic_input and st.session_state.bakul:
             st.session_state.tengah_simpan = True
             payload = {
-                "Nama": nama.upper().strip(), "IC": f"'{ic.strip()}",
-                "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Batch": batch,
+                "Nama": nama_input.upper().strip(), "IC": f"'{ic_input.strip()}",
+                "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d), "Batch": batch_input,
                 "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
                 "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
             }
             try:
                 requests.post(URL_API, json=payload, timeout=10)
                 st.session_state.bakul = []
+                st.session_state.batch_kekal = batch_input
                 st.session_state.tengah_simpan = False
-                st.session_state.batch_kekal = batch
                 st.success("Berjaya Disimpan!")
-                time.sleep(1); st.rerun()
+                time.sleep(1)
+                st.rerun()
             except:
-                st.session_state.bakul = []; st.session_state.tengah_simpan = False
+                st.session_state.bakul = []
+                st.session_state.tengah_simpan = False
                 st.rerun()
         else:
-            st.error("Ralat: Sila isi Nama, IC dan sekurang-kurangnya satu ubat dalam bakul.")
+            st.error("Sila isi Nama, IC dan sekurang-kurangnya satu ubat!")
 
+# --- 4. SUMMARY TAB ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
@@ -177,4 +180,21 @@ elif menu == "📊 SUMMARY":
 
             res_df = pd.DataFrame(matrix).T
             cols = ["📊 TOTAL"] + list(labels)
-            res_
+            res_df = res_df[cols]
+            
+            def zebra_style(df):
+                return ['background-color: #DDEBF7' if i % 2 == 0 else '' for i in range(len(df))]
+
+            st.dataframe(res_df.style.apply(zebra_style, axis=0), use_container_width=True)
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                res_df.astype(str).to_excel(writer, sheet_name='Summary')
+                wb = writer.book
+                ws = writer.sheets['Summary']
+                f_blue = wb.add_format({'bg_color': '#DDEBF7', 'border': 1, 'num_format': '@'})
+                f_white = wb.add_format({'bg_color': '#FFFFFF', 'border': 1, 'num_format': '@'})
+                for r in range(len(res_df) + 1):
+                    ws.set_row(r, None, f_blue if r % 2 == 0 and r > 0 else f_white)
+                ws.set_column(0, 0, 40)
+            st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{p_batch}.xlsx")
