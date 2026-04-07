@@ -390,11 +390,4 @@ elif menu == "📊 SUMMARY":
                 res_df.to_excel(writer, sheet_name='Summary')
             st.download_button(
                 label="📥 MUAT TURUN EXCEL (DENGAN IC)",
-                data=output.getvalue(),
-                file_name=f"Summary_{pilih_batch}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.info("Tiada data ditemui untuk batch ini.")
-    else:
-        st.error("Gagal menarik data dari Google Sheets.")
+                
