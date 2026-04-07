@@ -5,8 +5,8 @@ from datetime import datetime, date
 import io
 import time
 
-# --- 1. SETTING & KONFIGURASI ---
-st.set_page_config(page_title="SUPS HJEM V5.9", layout="wide")
+# --- 1. SETTING AWAL ---
+st.set_page_config(page_title="SUPS HJEM V6.0", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -31,42 +31,41 @@ MASTER_UBAT = sorted([
     "Vitamin B Complex Tablet", "Warfarin Sodium 1 mg Tablet"
 ])
 
-# --- 3. FUNGSI LOAD DATA ---
+# --- 3. FUNGSI ---
 def load_data():
     try:
         r = requests.get(f"{URL_SHEET_CSV}&t={time.time()}")
         df = pd.read_csv(io.StringIO(r.text))
         df.columns = df.columns.str.strip().str.upper()
         return df
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
-# --- 4. FUNGSI DOWNLOAD EXCEL (FIX IC FORMAT) ---
-def to_excel_v59(df):
+def to_excel_v60(df):
     output = io.BytesIO()
-    # Pastikan semua data ditukar ke string untuk elak Scientific Notation
     df_string = df.astype(str)
-    
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_string.to_excel(writer, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
         
-        # Format untuk memastikan IC dibaca sebagai teks (Quote prefix)
-        text_format = workbook.add_format({'num_format': '@'})
+        # Format Warna Selang-Seli (Zebra)
+        fmt_blue = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'num_format': '@'})
+        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'num_format': '@'})
+        fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1})
+
+        # Apply format ke Excel
+        for row_num in range(len(df) + 1):
+            if row_num == 0:
+                worksheet.set_row(row_num, None, fmt_header)
+            else:
+                current_fmt = fmt_blue if row_num % 2 == 0 else fmt_white
+                worksheet.set_row(row_num, None, current_fmt)
         
-        # Cari baris mana yang ada "🆔 NO. IC"
-        for row_num, index_val in enumerate(df.index):
-            if "IC" in str(index_val):
-                # Set format Teks untuk seluruh baris IC tersebut
-                worksheet.set_row(row_num + 1, None, text_format)
-                
-        worksheet.set_column(0, 0, 40) # Lebar kolum Nama Ubat
-        worksheet.set_column(1, len(df.columns), 20, text_format) # Lebar kolum Pesakit & format teks
-        
+        worksheet.set_column(0, 0, 40)
+        worksheet.set_column(1, len(df.columns), 20)
     return output.getvalue()
 
-# --- 5. UI ---
+# --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
@@ -75,37 +74,33 @@ if menu == "📝 INPUT":
     with st.form("input_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama Pesakit:").upper()
-        ic = c2.text_input("No. IC (Tanpa -):")
+        ic = c2.text_input("No. IC:")
         batch = c3.selectbox("Pilih Batch:", BATCH_OPTIONS)
         c4, c5 = st.columns(2)
         tca_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
-        tca_d = c5.date_input("TCA Klinik (Dr):", value=date.today())
+        tca_d = c5.date_input("TCA Klinik (Dr):", value=None)
         submitted = st.form_submit_button("💾 SIMPAN DATA")
 
     st.divider()
-    st.subheader("🛒 Bakul Ubat")
     u1, u2 = st.columns([3, 1])
-    pilih_u = u1.selectbox("Pilih Nama Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-    pilih_q = u2.text_input("Kuantiti:")
-    
+    p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
+    p_q = u2.text_input("Qty:")
     if st.button("➕ Tambah"):
-        if pilih_u != "-- PILIH --" and pilih_q:
-            st.session_state.bakul.append({"ubat": pilih_u, "qty": pilih_q})
-            st.rerun()
+        if p_u != "-- PILIH --" and p_q:
+            st.session_state.bakul.append({"ubat": p_u, "qty": p_q}); st.rerun()
 
     if st.session_state.bakul:
         for i, item in enumerate(st.session_state.bakul):
             b1, b2, b3 = st.columns([3, 1, 0.5])
-            b1.write(f"💊 {item['ubat']}")
-            b2.write(f"{item['qty']}")
+            b1.write(f"💊 {item['ubat']}"); b2.write(f"{item['qty']}")
             if b3.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
 
     if submitted:
         if nama and ic and st.session_state.bakul:
             payload = {
-                "Nama": nama, "IC": f"'{ic}", # Tambah single quote supaya Google Sheet baca sebagai teks
-                "TCA_Ubat": str(tca_u), "TCA_Clinic": str(tca_d), "Batch": batch,
+                "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(tca_u), 
+                "TCA_Clinic": str(tca_d) if tca_d else "-", "Batch": batch,
                 "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul]),
                 "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul])
             }
@@ -123,12 +118,11 @@ elif menu == "📊 SUMMARY":
             matrix = {}
             labels = df_f['NAMA'].unique()
             
-            # Format IC sebagai teks
+            # Row Info
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
             matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_CLINIC'].iloc[0] for l in labels}
             
-            # Durasi
             def get_dur(n):
                 try:
                     d1 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_UBAT'].iloc[0]).date()
@@ -148,11 +142,19 @@ elif menu == "📊 SUMMARY":
                     matrix[ub][l] = ql[ul.index(ub)] if ub in ul else ""
             
             res_df = pd.DataFrame(matrix).T
-            st.dataframe(res_df, use_container_width=True)
+            
+            # Warna Selang-Seli di Streamlit
+            def zebra_style(x):
+                df_style = pd.DataFrame('', index=x.index, columns=x.columns)
+                for i in range(len(x)):
+                    color = 'background-color: #DDEBF7' if i % 2 == 0 else ''
+                    df_style.iloc[i, :] = color
+                return df_style
+
+            st.dataframe(res_df.style.apply(zebra_style, axis=None), use_container_width=True)
             
             st.download_button(
-                label="📥 MUAT TURUN EXCEL (FIX IC)",
-                data=to_excel_v59(res_df),
-                file_name=f"Summary_{pilih_batch}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                label="📥 MUAT TURUN EXCEL (BERWARNA & FIX IC)",
+                data=to_excel_v60(res_df),
+                file_name=f"Summary_{pilih_batch}.xlsx"
             )
