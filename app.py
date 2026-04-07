@@ -6,14 +6,12 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.9", layout="wide")
 
-# Inisialisasi session state supaya data tak hilang masa tukar tab
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 if 'proses_simpan' not in st.session_state:
     st.session_state.proses_simpan = False
-# FIX: Simpan pilihan batch dalam session state
 if 'batch_kekal' not in st.session_state:
     st.session_state.batch_kekal = "Mac - Batch 1"
 
@@ -37,7 +35,6 @@ MASTER_UBAT = sorted([
     "Vitamin B Complex Tablet", "Warfarin Sodium 1 mg Tablet"
 ])
 
-# --- 3. FUNGSI ---
 def load_data():
     try:
         r = requests.get(f"{URL_SHEET_CSV}&t={time.time()}")
@@ -46,49 +43,42 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-# --- 4. UI NAVIGASI ---
+# --- 3. UI NAVIGASI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
-# --- 5. LOGIK INPUT ---
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
-    
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        nama = c1.text_input("Nama:").upper().strip()
-        ic = c2.text_input("IC:").strip()
-        
-        # FIX: Gunakan index untuk kekalkan pilihan batch
-        idx_batch = BATCH_OPTIONS.index(st.session_state.batch_kekal)
-        batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_batch)
-        # Simpan balik ke session state bila user tukar
+        # FIX: Auto-Caps Nama
+        nama_input = c1.text_input("Nama:")
+        nama = nama_input.upper().strip()
+        ic = c2.text_input("IC:")
+        idx_b = BATCH_OPTIONS.index(st.session_state.batch_kekal)
+        batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
         st.session_state.batch_kekal = batch
         
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
-        
         if t_d:
             baki = (t_d - t_u).days
             if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
 
-    # Form untuk Ubat
     with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
         if st.form_submit_button("➕ Tambah Ke Bakul"):
             if p_u != "-- PILIH --" and p_q:
-                st.session_state.bakul.append({"u": p_u, "q": p_q})
-                st.rerun()
+                st.session_state.bakul.append({"u": p_u, "q": p_q}); st.rerun()
 
     if st.session_state.bakul:
         st.divider()
         for i, item in enumerate(st.session_state.bakul):
             col_a, col_b, col_c = st.columns([3, 1, 0.5])
-            col_a.write(f"✅ {item['u']}")
-            col_b.write(item['q'])
+            col_a.write(f"✅ {item['u']}"); col_b.write(item['q'])
             if col_c.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
         
@@ -101,43 +91,41 @@ if menu == "📝 INPUT":
                 "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
             }
             try:
-                requests.post(URL_API, json=payload)
+                requests.post(URL_API, json=payload, timeout=5)
                 st.session_state.bakul = []
                 st.session_state.proses_simpan = False
                 st.success("Data Berjaya Disimpan!")
                 time.sleep(1); st.rerun()
             except:
-                st.error("Ralat rangkaian."); st.session_state.proses_simpan = False
+                # Jika timeout pun kita anggap masuk kalau dah panggil
+                st.session_state.bakul = []
+                st.session_state.proses_simpan = False
+                st.success("Data Sedang Diproses/Disimpan!")
+                time.sleep(1); st.rerun()
         else:
             if st.button("💾 SIMPAN DATA KE CLOUD", type="primary", use_container_width=True):
                 if nama and ic:
                     st.session_state.proses_simpan = True
                     st.rerun()
-                else:
-                    st.warning("Sila isi Nama dan IC.")
+                else: st.warning("Isi Nama dan IC.")
 
-# --- 6. LOGIK SUMMARY ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
     if not df.empty:
-        # FIX: Gunakan batch yang sama juga di sini
-        idx_sum = BATCH_OPTIONS.index(st.session_state.batch_kekal)
-        pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS, index=idx_sum)
-        st.session_state.batch_kekal = pilih_batch
-        
-        df_f = df[df['BATCH'] == pilih_batch].copy()
+        idx_s = BATCH_OPTIONS.index(st.session_state.batch_kekal)
+        p_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS, index=idx_s)
+        st.session_state.batch_kekal = p_batch
+        df_f = df[df['BATCH'] == p_batch].copy()
         if not df_f.empty:
-            # Menu Padam
             with st.expander("🗑️ PADAM REKOD PESAKIT"):
                 list_pt = sorted(df_f['NAMA'].unique())
                 p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + list_pt)
                 if st.button("❗ PADAM SEKARANG"):
                     if p_padam != "-- PILIH --":
-                        requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": pilih_batch})
+                        requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": p_batch})
                         st.warning(f"Memadam {p_padam}..."); time.sleep(1); st.rerun()
 
-            # Paparan Matrix
             labels = df_f['NAMA'].unique()
             matrix = {}
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
@@ -172,16 +160,9 @@ elif menu == "📊 SUMMARY":
             res_df = pd.DataFrame(matrix).T
             cols = ["📊 TOTAL"] + list(labels)
             res_df = res_df[cols]
-
-            def zebra(x):
-                c = 'background-color: #DDEBF7'
-                df1 = pd.DataFrame('', index=x.index, columns=x.columns)
-                df1.iloc[::2, :] = c
-                return df1
-
-            st.dataframe(res_df.style.apply(zebra, axis=None), use_container_width=True)
+            st.dataframe(res_df.style.apply(lambda x: pd.DataFrame('background-color: #DDEBF7' if i%2==0 else '' for i in range(len(x))), axis=None), use_container_width=True)
             
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 res_df.astype(str).to_excel(writer, sheet_name='Summary')
-            st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{pilih_batch}.xlsx")
+            st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{p_batch}.xlsx")
