@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V7.0", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V7.1", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -51,8 +51,8 @@ if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        nama_input = c1.text_input("Nama:")
-        nama = nama_input.upper().strip()
+        nama_in = c1.text_input("Nama:")
+        nama = nama_in.upper().strip()
         ic = c2.text_input("IC:")
         idx_b = BATCH_OPTIONS.index(st.session_state.batch_kekal)
         batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_b)
@@ -75,10 +75,10 @@ if menu == "📝 INPUT":
 
     if st.session_state.bakul:
         st.divider()
-        for i, item in enumerate(st.session_state.bakul):
-            col_a, col_b, col_c = st.columns([3, 1, 0.5])
-            col_a.write(f"✅ {item['u']}"); col_b.write(item['q'])
-            if col_c.button("🗑️", key=f"del_{i}"):
+        for i, itm in enumerate(st.session_state.bakul):
+            ca, cb, cc = st.columns([3, 1, 0.5])
+            ca.write(f"✅ {itm['u']}"); cb.write(itm['q'])
+            if cc.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
         
         if st.session_state.proses_simpan:
@@ -92,12 +92,10 @@ if menu == "📝 INPUT":
             except:
                 st.session_state.bakul = []
                 st.session_state.proses_simpan = False
-                st.success("Data Sedang Diproses!"); time.sleep(1); st.rerun()
+                st.success("Data Diproses!"); time.sleep(1); st.rerun()
         else:
             if st.button("💾 SIMPAN DATA KE CLOUD", type="primary", use_container_width=True):
-                if nama and ic:
-                    st.session_state.proses_simpan = True
-                    st.rerun()
+                if nama and ic: st.session_state.proses_simpan = True; st.rerun()
                 else: st.warning("Isi Nama dan IC.")
 
 elif menu == "📊 SUMMARY":
@@ -112,7 +110,7 @@ elif menu == "📊 SUMMARY":
             with st.expander("🗑️ PADAM REKOD PESAKIT"):
                 list_pt = sorted(df_f['NAMA'].unique())
                 p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + list_pt)
-                if st.button("❗ PADAM SEKARANG"):
+                if st.button("❗ PADAM"):
                     if p_padam != "-- PILIH --":
                         requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": p_batch})
                         st.warning(f"Memadam {p_padam}..."); time.sleep(1); st.rerun()
@@ -126,16 +124,16 @@ elif menu == "📊 SUMMARY":
             def get_dur(n):
                 try:
                     d1 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_UBAT'].iloc[0]).date()
-                    d2_v = df_f[df_f['NAMA']==n].get('TCA_CLINIC', pd.Series(['-'])).iloc[0]
+                    d2v = df_f[df_f['NAMA']==n].get('TCA_CLINIC', pd.Series(['-'])).iloc[0]
                     if d2_v == "-": return "-"
-                    d2 = pd.to_datetime(d2_v).date()
+                    d2 = pd.to_datetime(d2v).date()
                     return f"{(d2 - d1).days} HARI"
                 except: return "-"
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
-            u_b = []
-            for u_s in df_f['UBAT_LIST']: u_b.extend(str(u_s).split(' | '))
-            for ub in sorted(list(set(u_b))):
+            ub_batch = []
+            for u_s in df_f['UBAT_LIST']: ub_batch.extend(str(u_s).split(' | '))
+            for ub in sorted(list(set(ub_batch))):
                 matrix[ub] = {}
                 rt = 0
                 for l in labels:
@@ -152,17 +150,22 @@ elif menu == "📊 SUMMARY":
             cols = ["📊 TOTAL"] + list(labels)
             res_df = res_df[cols]
             
-            # FIX STYLING: Cara baru yang takkan error
-            def apply_style(df):
-                styles = pd.DataFrame('', index=df.index, columns=df.columns)
-                for i in range(len(df)):
-                    if i % 2 == 0:
-                        styles.iloc[i, :] = 'background-color: #DDEBF7'
-                return styles
+            # STYLING JADUAL (ZEBRA)
+            def zebra_style(df):
+                return ['background-color: #DDEBF7' if i % 2 == 0 else '' for i in range(len(df))]
 
-            st.dataframe(res_df.style.apply(apply_style, axis=None), use_container_width=True)
+            st.dataframe(res_df.style.apply(zebra_style, axis=0), use_container_width=True)
             
+            # DOWNLOAD EXCEL BERWARNA
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 res_df.astype(str).to_excel(writer, sheet_name='Summary')
-            st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{p_batch}.xlsx")
+                wb = writer.book
+                ws = writer.sheets['Summary']
+                fmt_blue = wb.add_format({'bg_color': '#DDEBF7', 'border': 1, 'num_format': '@'})
+                fmt_white = wb.add_format({'bg_color': '#FFFFFF', 'border': 1, 'num_format': '@'})
+                for r in range(len(res_df) + 1):
+                    f = fmt_blue if r % 2 == 0 and r > 0 else fmt_white
+                    ws.set_row(r, None, f)
+                ws.set_column(0, 0, 40)
+            st.download_button("📥 MUAT TURUN EXCEL BERWARNA", output.getvalue(), f"Summary_{p_batch}.xlsx")
