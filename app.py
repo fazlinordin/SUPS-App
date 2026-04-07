@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.2", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.3", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -14,7 +14,7 @@ if 'bakul' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER UBAT (Lengkap) ---
+# --- 2. MASTER UBAT ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Acarbose 50 mg Tablet", "Acetazolamide 250 mg Tablet",
     "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acyclovir 200 mg Tablet",
@@ -36,6 +36,7 @@ def load_data():
     try:
         r = requests.get(f"{URL_SHEET_CSV}&t={time.time()}")
         df = pd.read_csv(io.StringIO(r.text))
+        # Paksa semua nama kolum jadi HURUF BESAR untuk elak KeyError
         df.columns = df.columns.str.strip().str.upper()
         return df
     except: return pd.DataFrame()
@@ -83,7 +84,7 @@ if menu == "📝 INPUT":
             if res.status_code == 200:
                 st.success("Berjaya!"); st.session_state.bakul = []; time.sleep(1); st.rerun()
 
-# --- 5. UI SUMMARY (WITH ZEBRA & TOTAL) ---
+# --- 5. UI SUMMARY ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
@@ -94,16 +95,16 @@ elif menu == "📊 SUMMARY":
             labels = df_f['NAMA'].unique()
             matrix = {}
             
-            # Row Header
+            # Row Info (IC, TCA, DR)
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
-            matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_Clinic'].iloc[0] if 'TCA_CLINIC' in df_f.columns else "-" for l in labels}
+            matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l].get('TCA_CLINIC', pd.Series(['-'])).iloc[0] for l in labels}
             
             def get_dur(n):
                 try:
                     d1 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_UBAT'].iloc[0]).date()
-                    d2 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_CLINIC'].iloc[0]).date()
-                    return f"{(d2 - d1).days} HARI"
+                    d2 = pd.to_datetime(df_f[df_f['NAMA']==n].get('TCA_CLINIC', pd.Series([None])).iloc[0]).date()
+                    return f"{(d2 - d1).days} HARI" if d2 else "-"
                 except: return "-"
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
@@ -128,7 +129,7 @@ elif menu == "📊 SUMMARY":
             cols = ["📊 TOTAL"] + list(labels)
             res_df = res_df[cols]
 
-            # Style Zebra
+            # Warna Zebra (Biru Selang Seli)
             def zebra(x):
                 c = 'background-color: #DDEBF7'
                 df1 = pd.DataFrame('', index=x.index, columns=x.columns)
@@ -148,5 +149,4 @@ elif menu == "📊 SUMMARY":
                     fmt = f1 if r % 2 == 0 and r > 0 else f2
                     ws.set_row(r, None, fmt)
                 ws.set_column(0, 0, 40)
-                ws.set_column(1, len(res_df.columns), 15)
             st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{pilih_batch}.xlsx")
