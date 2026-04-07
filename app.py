@@ -389,5 +389,5 @@ elif menu == "📊 SUMMARY":
                 # Masa simpan Excel pun IC ada sekali dalam column Nama
                 res_df.to_excel(writer, sheet_name='Summary')
             st.download_button(
-                label="📥 MUAT TURUN EXCEL (DENGAN IC)",
+                label="📥 MUAT TURUN EXCEL (DENGAN IC)
                 
