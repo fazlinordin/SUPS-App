@@ -294,7 +294,7 @@ def to_excel_colored(df):
 
 # --- 4. UI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
-SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
+SENARAI_BATCH = [f"{m} - Batch {b}" for m in ["Jan", "Feb", "Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
