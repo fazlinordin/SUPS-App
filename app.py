@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.5", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.6", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -49,9 +49,9 @@ if menu == "📝 INPUT":
     
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # --- AUTO HURUF BESAR DI SINI ---
-        nama_input = c1.text_input("Nama Pesakit:")
-        nama = nama_input.upper() # Paksa jadi uppercase
+        # FIX: Auto-Caps Nama
+        nama_raw = c1.text_input("Nama Pesakit:")
+        nama = nama_raw.upper().strip()
         
         ic = c2.text_input("No. IC:")
         batch = c3.selectbox("Batch:", BATCH_OPTIONS)
@@ -60,60 +60,76 @@ if menu == "📝 INPUT":
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
         t_d = c5.date_input("TCA Klinik (Dr) [Opsional]:", value=None)
         
-        # Countdown Hijau
         if t_d:
-            baki_hari = (t_d - t_u).days
-            if baki_hari > 0:
-                st.success(f"🎯 **Sila bekalkan ubat untuk: {baki_hari} Hari**")
-            elif baki_hari == 0:
-                st.warning("⚠️ Temujanji Klinik adalah hari ini.")
+            baki = (t_d - t_u).days
+            if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
 
-    # Form untuk Ubat
+    # Form Tambah Ubat
     with st.form("ubat_form", clear_on_submit=True):
-        st.subheader("Pilih Ubat")
+        st.subheader("Tambah Ubat Ke Bakul")
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
         p_q = u2.text_input("Qty:")
-        if st.form_submit_button("➕ Tambah Ke Bakul"):
+        if st.form_submit_button("➕ Tambah"):
             if p_u != "-- PILIH --" and p_q:
-                st.session_state.bakul.append({"ubat": p_u, "qty": p_q})
+                st.session_state.bakul.append({"u": p_u, "q": p_q})
                 st.rerun()
 
-    # Paparan Bakul
+    # Paparan Bakul & Simpan
     if st.session_state.bakul:
         st.divider()
         for i, item in enumerate(st.session_state.bakul):
             col_a, col_b, col_c = st.columns([3, 1, 0.5])
-            col_a.write(f"✅ {item['ubat']}")
-            col_b.write(item['qty'])
+            col_a.write(f"✅ {item['u']}")
+            col_b.write(item['q'])
             if col_c.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
         
-        if st.button("💾 SIMPAN SEMUA DATA", type="primary", use_container_width=True):
+        # FIX: Simpan dengan Spinner (Blur Effect)
+        if st.button("💾 SIMPAN DATA KE CLOUD", type="primary", use_container_width=True):
             if nama and ic:
-                payload = {
-                    "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(t_u), 
-                    "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
-                    "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul]),
-                    "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul])
-                }
-                requests.post(URL_API, json=payload)
-                st.session_state.bakul = []
-                st.success("Data Berjaya Disimpan!")
-                time.sleep(1); st.rerun()
+                with st.spinner("Sila tunggu, sedang menyimpan..."):
+                    payload = {
+                        "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(t_u), 
+                        "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
+                        "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
+                        "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
+                    }
+                    try:
+                        requests.post(URL_API, json=payload)
+                        st.session_state.bakul = []
+                        st.success("Data Berjaya Disimpan!")
+                        time.sleep(1.5)
+                        st.rerun()
+                    except:
+                        st.error("Gagal menyambung ke server.")
+            else:
+                st.warning("Pastikan Nama dan IC telah diisi.")
 
-# --- 5. UI SUMMARY ---
+# --- 5. UI SUMMARY (WITH DELETE BUTTON) ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
+    
     if not df.empty:
         pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS)
         df_f = df[df['BATCH'] == pilih_batch].copy()
+        
         if not df_f.empty:
+            # FIX: Butang Padam Nama Pesakit
+            with st.expander("🗑️ PADAM REKOD PESAKIT"):
+                list_pt = sorted(df_f['NAMA'].unique())
+                pt_padam = st.selectbox("Pilih Nama Pesakit untuk dipadam:", ["-- PILIH --"] + list_pt)
+                if st.button("❗ PADAM SEKARANG", type="secondary"):
+                    if pt_padam != "-- PILIH --":
+                        with st.spinner(f"Memadam data {pt_padam}..."):
+                            requests.post(URL_API, json={"action": "DELETE", "Nama": pt_padam, "Batch": pilih_batch})
+                            st.warning(f"Data {pt_padam} telah dipadam.")
+                            time.sleep(1); st.rerun()
+
+            # Paparan Jadual (Zebra Strip)
             labels = df_f['NAMA'].unique()
             matrix = {}
-            
-            # Row Info
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
             matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l].get('TCA_CLINIC', pd.Series(['-'])).iloc[0] for l in labels}
@@ -126,9 +142,9 @@ elif menu == "📊 SUMMARY":
                     d2 = pd.to_datetime(d2_val).date()
                     return f"{(d2 - d1).days} HARI"
                 except: return "-"
-            
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
+            # Ubat & Total
             u_batch = []
             for u_s in df_f['UBAT_LIST']: u_batch.extend(str(u_s).split(' | '))
             for ub in sorted(list(set(u_batch))):
@@ -168,3 +184,5 @@ elif menu == "📊 SUMMARY":
                     ws.set_row(r, None, fmt)
                 ws.set_column(0, 0, 40)
             st.download_button("📥 MUAT TURUN EXCEL", output.getvalue(), f"Summary_{pilih_batch}.xlsx")
+        else:
+            st.info("Tiada data ditemui untuk batch ini.")
