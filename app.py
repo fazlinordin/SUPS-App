@@ -6,7 +6,7 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.9", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V7.0", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
@@ -51,7 +51,6 @@ if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # FIX: Auto-Caps Nama
         nama_input = c1.text_input("Nama:")
         nama = nama_input.upper().strip()
         ic = c2.text_input("IC:")
@@ -84,24 +83,16 @@ if menu == "📝 INPUT":
         
         if st.session_state.proses_simpan:
             st.button("⏳ SEDANG MENYIMPAN DATA...", disabled=True, use_container_width=True)
-            payload = {
-                "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(t_u), 
-                "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
-                "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]),
-                "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])
-            }
+            payload = {"Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(t_u), "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch, "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), "Kuantiti": " | ".join([x['q'] for x in st.session_state.bakul])}
             try:
                 requests.post(URL_API, json=payload, timeout=5)
                 st.session_state.bakul = []
                 st.session_state.proses_simpan = False
-                st.success("Data Berjaya Disimpan!")
-                time.sleep(1); st.rerun()
+                st.success("Data Berjaya Disimpan!"); time.sleep(1); st.rerun()
             except:
-                # Jika timeout pun kita anggap masuk kalau dah panggil
                 st.session_state.bakul = []
                 st.session_state.proses_simpan = False
-                st.success("Data Sedang Diproses/Disimpan!")
-                time.sleep(1); st.rerun()
+                st.success("Data Sedang Diproses!"); time.sleep(1); st.rerun()
         else:
             if st.button("💾 SIMPAN DATA KE CLOUD", type="primary", use_container_width=True):
                 if nama and ic:
@@ -135,16 +126,16 @@ elif menu == "📊 SUMMARY":
             def get_dur(n):
                 try:
                     d1 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_UBAT'].iloc[0]).date()
-                    d2_val = df_f[df_f['NAMA']==n].get('TCA_CLINIC', pd.Series(['-'])).iloc[0]
-                    if d2_val == "-": return "-"
-                    d2 = pd.to_datetime(d2_val).date()
+                    d2_v = df_f[df_f['NAMA']==n].get('TCA_CLINIC', pd.Series(['-'])).iloc[0]
+                    if d2_v == "-": return "-"
+                    d2 = pd.to_datetime(d2_v).date()
                     return f"{(d2 - d1).days} HARI"
                 except: return "-"
             matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
-            u_batch = []
-            for u_s in df_f['UBAT_LIST']: u_batch.extend(str(u_s).split(' | '))
-            for ub in sorted(list(set(u_batch))):
+            u_b = []
+            for u_s in df_f['UBAT_LIST']: u_b.extend(str(u_s).split(' | '))
+            for ub in sorted(list(set(u_b))):
                 matrix[ub] = {}
                 rt = 0
                 for l in labels:
@@ -160,7 +151,16 @@ elif menu == "📊 SUMMARY":
             res_df = pd.DataFrame(matrix).T
             cols = ["📊 TOTAL"] + list(labels)
             res_df = res_df[cols]
-            st.dataframe(res_df.style.apply(lambda x: pd.DataFrame('background-color: #DDEBF7' if i%2==0 else '' for i in range(len(x))), axis=None), use_container_width=True)
+            
+            # FIX STYLING: Cara baru yang takkan error
+            def apply_style(df):
+                styles = pd.DataFrame('', index=df.index, columns=df.columns)
+                for i in range(len(df)):
+                    if i % 2 == 0:
+                        styles.iloc[i, :] = 'background-color: #DDEBF7'
+                return styles
+
+            st.dataframe(res_df.style.apply(apply_style, axis=None), use_container_width=True)
             
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
