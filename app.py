@@ -383,5 +383,18 @@ elif menu == "📊 SUMMARY":
             res = convert_to_matrix_final(df_f)
             st.dataframe(res.style.apply(lambda x: ['background-color: #DDEBF7' if i % 2 == 0 else '' for i in range(len(res))], axis=0), use_container_width=True, height=500)
             excel_data = to_excel_colored(res)
-            st.download_button(label="📥 Muat Turun Excel (.xlsx)", data=excel_data, file_name=f"{b_sel}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else: st.info(f"Tiada data untuk {b_sel}")
+           # Button Download
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                # Masa simpan Excel pun IC ada sekali dalam column Nama
+                res_df.to_excel(writer, sheet_name='Summary')
+            st.download_button(
+                label="📥 MUAT TURUN EXCEL (DENGAN IC)",
+                data=output.getvalue(),
+                file_name=f"Summary_{pilih_batch}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.info("Tiada data ditemui untuk batch ini.")
+    else:
+        st.error("Gagal menarik data dari Google Sheets.")
