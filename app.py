@@ -6,16 +6,15 @@ import io
 import time
 
 # --- 1. SETTING & KONFIGURASI ---
-st.set_page_config(page_title="SUPS HJEM V5.8", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V5.9", layout="wide")
 
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
 
-# URL Google Sheets & Apps Script
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER UBAT (Lengkap dengan Fusidic Acid 2% Ointment) ---
+# --- 2. MASTER UBAT ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Acarbose 50 mg Tablet", "Acetazolamide 250 mg Tablet",
     "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acyclovir 200 mg Tablet",
@@ -42,34 +41,54 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# --- 4. ANTARAMUKA (UI) ---
-menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
+# --- 4. FUNGSI DOWNLOAD EXCEL (FIX IC FORMAT) ---
+def to_excel_v59(df):
+    output = io.BytesIO()
+    # Pastikan semua data ditukar ke string untuk elak Scientific Notation
+    df_string = df.astype(str)
+    
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_string.to_excel(writer, sheet_name='Summary')
+        workbook  = writer.book
+        worksheet = writer.sheets['Summary']
+        
+        # Format untuk memastikan IC dibaca sebagai teks (Quote prefix)
+        text_format = workbook.add_format({'num_format': '@'})
+        
+        # Cari baris mana yang ada "🆔 NO. IC"
+        for row_num, index_val in enumerate(df.index):
+            if "IC" in str(index_val):
+                # Set format Teks untuk seluruh baris IC tersebut
+                worksheet.set_row(row_num + 1, None, text_format)
+                
+        worksheet.set_column(0, 0, 40) # Lebar kolum Nama Ubat
+        worksheet.set_column(1, len(df.columns), 20, text_format) # Lebar kolum Pesakit & format teks
+        
+    return output.getvalue()
 
+# --- 5. UI ---
+menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
-    
     with st.form("input_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         nama = c1.text_input("Nama Pesakit:").upper()
-        ic = c2.text_input("No. IC:")
+        ic = c2.text_input("No. IC (Tanpa -):")
         batch = c3.selectbox("Pilih Batch:", BATCH_OPTIONS)
-        
         c4, c5 = st.columns(2)
         tca_u = c4.date_input("TCA Ambil Ubat:", value=date.today())
         tca_d = c5.date_input("TCA Klinik (Dr):", value=date.today())
-        
-        submitted = st.form_submit_button("💾 SIMPAN DATA KE CLOUD")
+        submitted = st.form_submit_button("💾 SIMPAN DATA")
 
     st.divider()
-    
     st.subheader("🛒 Bakul Ubat")
     u1, u2 = st.columns([3, 1])
     pilih_u = u1.selectbox("Pilih Nama Ubat:", ["-- PILIH --"] + MASTER_UBAT)
-    pilih_q = u2.text_input("Kuantiti (Unit):")
+    pilih_q = u2.text_input("Kuantiti:")
     
-    if st.button("➕ Tambah ke Bakul"):
+    if st.button("➕ Tambah"):
         if pilih_u != "-- PILIH --" and pilih_q:
             st.session_state.bakul.append({"ubat": pilih_u, "qty": pilih_q})
             st.rerun()
@@ -80,85 +99,60 @@ if menu == "📝 INPUT":
             b1.write(f"💊 {item['ubat']}")
             b2.write(f"{item['qty']}")
             if b3.button("🗑️", key=f"del_{i}"):
-                st.session_state.bakul.pop(i)
-                st.rerun()
+                st.session_state.bakul.pop(i); st.rerun()
 
     if submitted:
         if nama and ic and st.session_state.bakul:
-            with st.spinner("Sedang menyimpan..."):
-                payload = {
-                    "Nama": nama, "IC": ic, "TCA_Ubat": str(tca_u),
-                    "TCA_Clinic": str(tca_d), "Batch": batch,
-                    "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul]),
-                    "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul])
-                }
-                res = requests.post(URL_API, json=payload)
-                if res.status_code == 200:
-                    st.success(f"Data {nama} berjaya disimpan!")
-                    st.session_state.bakul = []
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Gagal hantar ke Cloud.")
-        else:
-            st.warning("Sila isi Nama, IC dan sekurang-kurangnya 1 ubat.")
+            payload = {
+                "Nama": nama, "IC": f"'{ic}", # Tambah single quote supaya Google Sheet baca sebagai teks
+                "TCA_Ubat": str(tca_u), "TCA_Clinic": str(tca_d), "Batch": batch,
+                "Ubat_List": " | ".join([x['ubat'] for x in st.session_state.bakul]),
+                "Kuantiti": " | ".join([x['qty'] for x in st.session_state.bakul])
+            }
+            res = requests.post(URL_API, json=payload)
+            if res.status_code == 200:
+                st.success("Berjaya!"); st.session_state.bakul = []; time.sleep(1); st.rerun()
 
-# --- 5. SUMMARY (TAMBAH KOLUM IC DI ATAS TCA AMBIL) ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
-    
     if not df.empty:
         pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS)
         df_f = df[df['BATCH'] == pilih_batch].copy()
-        
         if not df_f.empty:
             matrix = {}
             labels = df_f['NAMA'].unique()
             
-            # Row Header Info (Ditambah No. IC)
-            matrix["🆔 NO. IC"] = {l: df_f[df_f['NAMA']==l]['IC'].iloc[0] for l in labels}
+            # Format IC sebagai teks
+            matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
             matrix["📅 TCA AMBIL"] = {l: df_f[df_f['NAMA']==l]['TCA_UBAT'].iloc[0] for l in labels}
             matrix["👨‍⚕️ TCA DR"] = {l: df_f[df_f['NAMA']==l]['TCA_CLINIC'].iloc[0] for l in labels}
             
-            # Pengiraan Durasi
-            def hitung_hari(n):
+            # Durasi
+            def get_dur(n):
                 try:
                     d1 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_UBAT'].iloc[0]).date()
                     d2 = pd.to_datetime(df_f[df_f['NAMA']==n]['TCA_CLINIC'].iloc[0]).date()
                     return f"{(d2 - d1).days} HARI"
                 except: return "-"
+            matrix["⏳ DURASI"] = {l: get_dur(l) for l in labels}
             
-            matrix["⏳ DURASI"] = {l: hitung_hari(l) for l in labels}
-            
-            # Row Ubat-ubatan
-            senarai_ubat_batch = []
-            for u_str in df_f['UBAT_LIST']:
-                senarai_ubat_batch.extend(str(u_str).split(' | '))
-            
-            for ub in sorted(list(set(senarai_ubat_batch))):
+            # Ubat
+            u_batch = []
+            for u_s in df_f['UBAT_LIST']: u_batch.extend(str(u_s).split(' | '))
+            for ub in sorted(list(set(u_batch))):
                 matrix[ub] = {}
                 for l in labels:
-                    p_data = df_f[df_f['NAMA'] == l].iloc[0]
-                    u_list = str(p_data['UBAT_LIST']).split(' | ')
-                    q_list = str(p_data['KUANTITI']).split(' | ')
-                    matrix[ub][l] = q_list[u_list.index(ub)] if ub in u_list else ""
+                    p = df_f[df_f['NAMA'] == l].iloc[0]
+                    ul, ql = str(p['UBAT_LIST']).split(' | '), str(p['KUANTITI']).split(' | ')
+                    matrix[ub][l] = ql[ul.index(ub)] if ub in ul else ""
             
             res_df = pd.DataFrame(matrix).T
             st.dataframe(res_df, use_container_width=True)
             
-            # Button Download
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                # Masa simpan Excel pun IC ada sekali dalam column Nama
-                res_df.to_excel(writer, sheet_name='Summary')
             st.download_button(
-                label="📥 MUAT TURUN EXCEL (DENGAN IC)",
-                data=output.getvalue(),
+                label="📥 MUAT TURUN EXCEL (FIX IC)",
+                data=to_excel_v59(res_df),
                 file_name=f"Summary_{pilih_batch}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-        else:
-            st.info("Tiada data ditemui untuk batch ini.")
-    else:
-        st.error("Gagal menarik data dari Google Sheets.")
