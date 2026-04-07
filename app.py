@@ -6,15 +6,16 @@ import io
 import time
 
 # --- 1. SETTING AWAL ---
-st.set_page_config(page_title="SUPS HJEM V6.7", layout="wide")
+st.set_page_config(page_title="SUPS HJEM V6.8", layout="wide")
 
-# Inisialisasi session state
+# Inisialisasi session state supaya data tak hilang masa tukar tab
 if 'bakul' not in st.session_state:
     st.session_state.bakul = []
-if 'pilihan_batch' not in st.session_state:
-    st.session_state.pilihan_batch = "Mac - Batch 1"
 if 'proses_simpan' not in st.session_state:
     st.session_state.proses_simpan = False
+# FIX: Simpan pilihan batch dalam session state
+if 'batch_kekal' not in st.session_state:
+    st.session_state.batch_kekal = "Mac - Batch 1"
 
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
@@ -45,19 +46,24 @@ def load_data():
         return df
     except: return pd.DataFrame()
 
-# --- 4. UI INPUT ---
+# --- 4. UI NAVIGASI ---
 menu = st.sidebar.radio("NAVIGASI", ["📝 INPUT", "📊 SUMMARY"])
 BATCH_OPTIONS = [f"{m} - Batch {b}" for m in ["Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"] for b in [1, 2]]
 
+# --- 5. LOGIK INPUT ---
 if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # AUTO-CAPS Logic
         nama = c1.text_input("Nama:").upper().strip()
         ic = c2.text_input("IC:").strip()
-        batch = c3.selectbox("Batch:", BATCH_OPTIONS)
+        
+        # FIX: Gunakan index untuk kekalkan pilihan batch
+        idx_batch = BATCH_OPTIONS.index(st.session_state.batch_kekal)
+        batch = c3.selectbox("Batch:", BATCH_OPTIONS, index=idx_batch)
+        # Simpan balik ke session state bila user tukar
+        st.session_state.batch_kekal = batch
         
         c4, c5 = st.columns(2)
         t_u = c4.date_input("TCA Ambil Ubat (Hari Ini):", value=date.today())
@@ -67,7 +73,7 @@ if menu == "📝 INPUT":
             baki = (t_d - t_u).days
             if baki > 0: st.success(f"🎯 **Sila bekalkan ubat untuk: {baki} Hari**")
 
-    # Form untuk Ubat (Clear on Submit)
+    # Form untuk Ubat
     with st.form("ubat_form", clear_on_submit=True):
         u1, u2 = st.columns([3, 1])
         p_u = u1.selectbox("Pilih Ubat:", ["-- PILIH --"] + MASTER_UBAT)
@@ -86,11 +92,8 @@ if menu == "📝 INPUT":
             if col_c.button("🗑️", key=f"del_{i}"):
                 st.session_state.bakul.pop(i); st.rerun()
         
-        # LOGIK BUTANG SIMPAN BLUR (DISABLED)
         if st.session_state.proses_simpan:
             st.button("⏳ SEDANG MENYIMPAN DATA...", disabled=True, use_container_width=True)
-            
-            # Proses hantar data
             payload = {
                 "Nama": nama, "IC": f"'{ic}", "TCA_Ubat": str(t_u), 
                 "TCA_Clinic": str(t_d) if t_d else "-", "Batch": batch,
@@ -104,8 +107,7 @@ if menu == "📝 INPUT":
                 st.success("Data Berjaya Disimpan!")
                 time.sleep(1); st.rerun()
             except:
-                st.error("Ralat rangkaian. Cuba lagi.")
-                st.session_state.proses_simpan = False
+                st.error("Ralat rangkaian."); st.session_state.proses_simpan = False
         else:
             if st.button("💾 SIMPAN DATA KE CLOUD", type="primary", use_container_width=True):
                 if nama and ic:
@@ -114,15 +116,19 @@ if menu == "📝 INPUT":
                 else:
                     st.warning("Sila isi Nama dan IC.")
 
-# --- 5. UI SUMMARY (WITH DELETE) ---
+# --- 6. LOGIK SUMMARY ---
 elif menu == "📊 SUMMARY":
     st.header("Checklist & Durasi Bekalan")
     df = load_data()
     if not df.empty:
-        pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS)
+        # FIX: Gunakan batch yang sama juga di sini
+        idx_sum = BATCH_OPTIONS.index(st.session_state.batch_kekal)
+        pilih_batch = st.selectbox("Pilih Batch:", BATCH_OPTIONS, index=idx_sum)
+        st.session_state.batch_kekal = pilih_batch
+        
         df_f = df[df['BATCH'] == pilih_batch].copy()
         if not df_f.empty:
-            # BUTTON PADAM
+            # Menu Padam
             with st.expander("🗑️ PADAM REKOD PESAKIT"):
                 list_pt = sorted(df_f['NAMA'].unique())
                 p_padam = st.selectbox("Pilih Pesakit:", ["-- PILIH --"] + list_pt)
@@ -131,7 +137,7 @@ elif menu == "📊 SUMMARY":
                         requests.post(URL_API, json={"action": "DELETE", "Nama": p_padam, "Batch": pilih_batch})
                         st.warning(f"Memadam {p_padam}..."); time.sleep(1); st.rerun()
 
-            # PAPARAN JADUAL
+            # Paparan Matrix
             labels = df_f['NAMA'].unique()
             matrix = {}
             matrix["🆔 NO. IC"] = {l: str(df_f[df_f['NAMA']==l]['IC'].iloc[0]).replace("'","") for l in labels}
@@ -175,7 +181,6 @@ elif menu == "📊 SUMMARY":
 
             st.dataframe(res_df.style.apply(zebra, axis=None), use_container_width=True)
             
-            # Download
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 res_df.astype(str).to_excel(writer, sheet_name='Summary')
