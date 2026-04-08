@@ -281,13 +281,14 @@ def to_excel_colored(df):
     output = io.BytesIO()
     try:
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
-        # Paksa semua data jadi string supaya 0 di depan IC tidak hilang
+        # Paksa semua data jadi teks sebelum tulis ke Excel
         df.astype(str).to_excel(writer, index=True, sheet_name='Summary')
         
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
         
-        # Tambah 'num_format': '@' untuk kunci format sebagai TEXT
+        # --- PERUBAHAN PENTING DI SINI ---
+        # Kita tambah 'num_format': '@' supaya Excel anggap sel itu sebagai TEXT sahaja
         fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter', 'num_format': '@'})
         fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter', 'num_format': '@'})
         fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
@@ -303,6 +304,20 @@ def to_excel_colored(df):
                 is_blue = row_num % 2 == 0
                 current_fmt = fmt_blue if is_blue else fmt_white
                 ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
+                
+                # Gunakan set_row dengan format yang ada num_format: '@'
+                worksheet.set_row(row_num, None, current_fmt)
+                # Tulis balik data index (Nama Ubat) dengan format kiri
+                worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
+                
+        # Set lebar kolom supaya IC nampak penuh
+        worksheet.set_column(0, 0, 45)  # Kolom Ubat
+        worksheet.set_column(1, num_cols, 18) # Kolom IC & Pesakit (Format Teks dikekalkan)
+        
+        writer.close()
+    except:
+        df.to_excel(output, index=True)
+    return output.getvalue()
                 worksheet.set_row(row_num, None, current_fmt)
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
                 
