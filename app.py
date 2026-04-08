@@ -342,8 +342,8 @@ if menu == "📝 INPUT":
 
     if st.session_state.proses_simpan:
         payload = {
-            "Nama": st.session_state.input_nama, 
-            "IC": st.session_state.input_ic, 
+            "Nama": st.session_state.input_nama.upper(), 
+            "IC": f"'{st.session_state.input_ic}", 
             "TCA_Ubat": str(t_u), 
             "TCA_Clinic": str(t_d) if t_d else "-", 
             "Ubat_List": " | ".join([x['u'] for x in st.session_state.bakul]), 
