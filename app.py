@@ -281,46 +281,27 @@ def to_excel_colored(df):
     output = io.BytesIO()
     try:
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
-        
-        # --- TEKNIK DRASTIK ---
-        # Kita buat salinan dataframe dan tambah tanda ' secara paksa pada setiap data
-        # Ini akan buat Excel "menyerah kalah" dan kekalkan angka 0
-        df_final = df.copy().astype(str)
-        for col in df_final.columns:
-            if col != "📊 TOTAL": # Jangan kacau kolom total
-                df_final[col] = df_final[col].apply(lambda x: f"'{x}" if x != "" and x != "-" else x)
-        
-        df_final.to_excel(writer, index=True, sheet_name='Summary')
-        
+        # Gunakan .astype(str) supaya IC tidak bertukar format di Excel
+        df.astype(str).to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
-        
-        # Format sel dengan num_format TEXT (@)
-        fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'num_format': '@'})
-        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'num_format': '@'})
+        fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        fmt_white = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         fmt_header = workbook.add_format({'bg_color': '#4F81BD', 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
-        
         fmt_ubat_b = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'left'})
         fmt_ubat_w = workbook.add_format({'bg_color': '#FFFFFF', 'border': 1, 'align': 'left'})
-        
         num_cols = len(df.columns) + 1 
         for row_num in range(len(df) + 1):
-            if row_num == 0:
-                worksheet.set_row(row_num, None, fmt_header)
+            if row_num == 0: worksheet.set_row(row_num, None, fmt_header)
             else:
                 is_blue = row_num % 2 == 0
                 current_fmt = fmt_blue if is_blue else fmt_white
                 ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
-                
                 worksheet.set_row(row_num, None, current_fmt)
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
-                
-        worksheet.set_column(0, 0, 45)  # Kolom Nama Ubat
-        worksheet.set_column(1, num_cols, 20) # Kolom Pesakit/IC
-        
+        worksheet.set_column(0, 0, 45); worksheet.set_column(1, 1, 15); worksheet.set_column(2, num_cols, 18)
         writer.close()
-    except:
-        df.to_excel(output, index=True)
+    except: df.to_excel(output, index=True)
     return output.getvalue()
 
 # --- 4. UI ---
