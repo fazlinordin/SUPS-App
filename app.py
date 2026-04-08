@@ -77,7 +77,7 @@ MASTER_UBAT = sorted([
     "Coal Tar 12% Salicylic acid 2% Sulphur 4% Ointment", "Colchicine 0.5 mg Tablet", "Compound Zinc Paste BP (25%w/w)", 
     "Conjugated Oestrogens 0.625mg Tablet", "Copper Sulphate Crystal", "Crotamiton 10 % Cream", "Dabigatran Etexilate 110 mg Capsule", 
     "Dabigatran Etexilate 150 mg Capsule", "Daclatasvir 60mg Tablet", "Danazol 200 mg Capsule", "Dapagliflozin 10 mg Film-Coated Tablet", 
-    "Dapsone 100 mg Tablet", "Desloratadine 5 mg Tablet", "Desvenlafaxine 50 mg EXTENDED RELEASE Tablet", "Dexamethasone Acetate 0.1% Eye Drop", 
+    "Dapsone 100 mg Tablet", "Desloratadine 0.5mg/ml Syrup", "Desloratadine 5 mg Tablet", "Desvenlafaxine 50 mg EXTENDED RELEASE Tablet", "Dexamethasone Acetate 0.1% Eye Drop", 
     "Dexamethasone sodium phosphate 0.1% Eye Drops", "Dexamethasone,Neomycin,Polymyxin B Eye Drop (Maxitrol)", 
     "Dextrose 5% 500ml IV soln", "Dextrose 10% 500mL IV soln", "Dextrose 50% 10mL Inj", "Dextrose Powder", 
     "Diazepam 5 mg Rectal Solution", "Diazepam 10 mg/2 ml Injection", "Diclofenac 1% Emulgel", "Diclofenac Sodium 50 mg Tablet", 
