@@ -25,7 +25,7 @@ if 'input_ic' not in st.session_state:
 URL_API = "https://script.google.com/macros/s/AKfycbyeZXuPoyqsORGh_-kPC8lVTiFe41qZvQ4V8gBQU_BXnmP30zufcjSDxN6HnqyzQRRu/exec"
 URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/18K_lW1HUvA28cG6b5tf9RR3ckF8ONyALzDejvMhTvtI/export?format=csv"
 
-# --- 2. MASTER LIST UBAT (LIST LENGKAP FAZLI) ---
+# --- 2. MASTER LIST UBAT ---
 MASTER_UBAT = sorted([
     "Abacavir 300mg Tablet", "Abacavir Sulphate 600mg + Lamivudine 300mg Tablet", "Acarbose 50 mg Tablet", 
     "Acetazolamide 250 mg Tablet", "Acetylsalicylic Acid 100 mg, Glycine 45 mg Tablet", "Acetylsalicylic Acid 150 mg Dispersible Tablet", 
@@ -244,11 +244,16 @@ def hitung_durasi(tca_u, tca_d):
 
 def convert_to_matrix_final(df_f):
     if df_f.empty: return pd.DataFrame()
-    matrix_data, info_u, info_d, info_dur, calc_data = [], {}, {}, {}, []
+    # Tambah info_ic di sini supaya IC masuk dalam senarai paparan & Excel
+    matrix_data, info_u, info_d, info_dur, info_ic, calc_data = [], {}, {}, {}, {}, []
     for _, row in df_f.iterrows():
         p = str(row['NAMA']).strip().upper()
         tu, td = str(row.get('TCA_UBAT', '-')), str(row.get('TCA_CLINIC', '-'))
-        info_u[p], info_d[p], info_dur[p] = format_tarikh(tu), format_tarikh(td), hitung_durasi(tu, td)
+        # Ambil IC dan buang tanda ' (kalau ada)
+        ic_val = str(row.get('IC', '-')).replace("'", "")
+        
+        info_u[p], info_d[p], info_dur[p], info_ic[p] = format_tarikh(tu), format_tarikh(td), hitung_durasi(tu, td), ic_val
+        
         u_list, q_list = str(row['UBAT_LIST']).split(' | '), str(row['KUANTITI']).split(' | ')
         for u, q in zip(u_list, q_list):
             u_up, q_str = u.strip().upper(), q.strip()
@@ -257,20 +262,27 @@ def convert_to_matrix_final(df_f):
                 num = int(''.join(filter(str.isdigit, q_str)))
                 calc_data.append({'UBAT': u_up, 'VAL': num})
             except: pass
+            
     df_m = pd.DataFrame(matrix_data)
     matrix = df_m.pivot_table(index='UBAT', columns='PESAKIT', values='QTY', aggfunc='first').fillna("")
+    
     if calc_data:
         totals = pd.DataFrame(calc_data).groupby('UBAT')['VAL'].sum().astype(int)
         matrix.insert(0, "📊 TOTAL", totals)
-    header = pd.DataFrame([info_u, info_d, info_dur], index=["📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
+    
+    # Masukkan baris IC di kedudukan pertama Header
+    header = pd.DataFrame([info_ic, info_u, info_d, info_dur], 
+                          index=["🆔 NO. IC", "📅 TCA AMBIL", "👨‍⚕️ TCA DR", "⏳ DURASI"])
     header.insert(0, "📊 TOTAL", "")
+    
     return pd.concat([header, matrix], sort=False).fillna("")
 
 def to_excel_colored(df):
     output = io.BytesIO()
     try:
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
-        df.to_excel(writer, index=True, sheet_name='Summary')
+        # Gunakan .astype(str) supaya IC tidak bertukar format di Excel
+        df.astype(str).to_excel(writer, index=True, sheet_name='Summary')
         workbook  = writer.book
         worksheet = writer.sheets['Summary']
         fmt_blue  = workbook.add_format({'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
@@ -287,7 +299,7 @@ def to_excel_colored(df):
                 ubat_fmt = fmt_ubat_b if is_blue else fmt_ubat_w
                 worksheet.set_row(row_num, None, current_fmt)
                 worksheet.write(row_num, 0, df.index[row_num-1], ubat_fmt)
-        worksheet.set_column(0, 0, 45); worksheet.set_column(1, 1, 12); worksheet.set_column(2, num_cols, 18)
+        worksheet.set_column(0, 0, 45); worksheet.set_column(1, 1, 15); worksheet.set_column(2, num_cols, 18)
         writer.close()
     except: df.to_excel(output, index=True)
     return output.getvalue()
@@ -300,9 +312,9 @@ if menu == "📝 INPUT":
     st.header("Pendaftaran Pesakit")
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        # Gunakan session_state untuk Nama & IC
+        # Nama auto-kapitalize
         st.session_state.input_nama = c1.text_input("Nama:", value=st.session_state.input_nama).upper().strip()
-        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic).upper().strip()
+        st.session_state.input_ic = c2.text_input("IC:", value=st.session_state.input_ic).strip()
         
         idx_batch = SENARAI_BATCH.index(st.session_state.pilihan_batch)
         batch = c3.selectbox("Batch:", SENARAI_BATCH, index=idx_batch)
@@ -354,7 +366,7 @@ if menu == "📝 INPUT":
             requests.post(URL_API, json=payload)
             st.success("Berjaya Disimpan!")
             
-            # --- RESET SEMUA INPUT SELEPAS BERJAYA ---
+            # --- RESET SEMUA INPUT ---
             st.session_state.bakul = []
             st.session_state.input_nama = ""
             st.session_state.input_ic = ""
