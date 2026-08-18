@@ -178,7 +178,7 @@ MASTER_UBAT = sorted([
     "Quetiapine Fumarate 100mg IR Tablet", "Quetiapine Fumarate 200mg IR Tablet", "Quetiapine Fumarate 200 mg EXTENDED RELEASE Tablet", 
     "Quetiapine Fumarate 300 mg EXTENDED RELEASE Tablet", "Quetiapine Fumarate 400 mg EXTENDED RELEASE Tablet", 
     "Ravidasvir Hydrochloride 200mg Tablet", "Rifampicin 150 mg Capsule", "Rifampicin 300 mg Capsule", 
-    "Rifampicin 150mg + Isoniazid 75mg Tablet (Akurit-2)", "Rifampicin/Isoniazid/Pyrazinamide/Ethambutol (Akurit-4) Tab", "Risperidone 1 mg Tablet", 
+    "Rivaroxaban 20 mg Tablet", "Rifampicin 150mg + Isoniazid 75mg Tablet (Akurit-2)", "Rifampicin/Isoniazid/Pyrazinamide/Ethambutol (Akurit-4) Tab", "Risperidone 1 mg Tablet", 
     "Risperidone 2 mg Tablet", "Rosuvastatin 20 mg Tablet", "Sacubitril 49mg, Valsartan 51mg Tablet", "Salbutamol 2 mg Tablet", 
     "Salbutamol 2 mg/5 ml Syrup", "Salbutamol 100 mcg/dose Inhaler (200 doses)", "Salbutamol 0.5 % Nebulising Solution", 
     "Salicylazosulphapyridine (Sulfasalazine) 500 mg Tablet", "Salicylic Acid 2% Ointment", "Salicylic Acid 5% Ointment", 
